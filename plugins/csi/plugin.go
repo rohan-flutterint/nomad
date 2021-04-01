@@ -86,6 +86,10 @@ type CSIPlugin interface {
 	// for the given volume.
 	NodeUnpublishVolume(ctx context.Context, volumeID, targetPath string, opts ...grpc.CallOption) error
 
+	// NodeGetVolumeStats is used to query the current usage statistics
+	// (bytes, inodes, condition, etc.) for a volume.
+	NodeGetVolumeStats(ctx context.Context, volumeID, targetPath, stagingTargetPath string, opts ...grpc.CallOption) (*NodeGetVolumeStatsResponse, error)
+
 	// Shutdown the client and ensure any connections are cleaned up.
 	Close() error
 }
@@ -834,4 +838,46 @@ func (c *CapacityRange) ToCSIRepresentation() *csipbv1.CapacityRange {
 		RequiredBytes: c.RequiredBytes,
 		LimitBytes:    c.LimitBytes,
 	}
+}
+
+type NodeGetVolumeStatsResponse struct {
+	Usage     []*VolumeStatUsage
+	Condition *VolumeCondition
+}
+
+type VolumeStatUsage struct {
+	Available int64
+	Total     int64
+	Used      int64
+	Unit      string
+}
+
+func NewNodeGetVolumeStatsResponse(resp *csipbv1.NodeGetVolumeStatsResponse) *NodeGetVolumeStatsResponse {
+	result := &NodeGetVolumeStatsResponse{Usage: []*VolumeStatUsage{}}
+	result.Condition = &VolumeCondition{
+		Abnormal: resp.GetVolumeCondition().GetAbnormal(),
+		Message:  resp.GetVolumeCondition().GetMessage(),
+	}
+
+	usages := resp.GetUsage()
+	if usages != nil { // protobufs can be nil or empty
+		for _, usage := range usages {
+			u := &VolumeStatUsage{
+				Available: usage.GetAvailable(),
+				Total:     usage.GetTotal(),
+				Used:      usage.GetUsed(),
+			}
+
+			switch usage.GetUnit() {
+			case csipbv1.VolumeUsage_BYTES:
+				u.Unit = "bytes"
+			case csipbv1.VolumeUsage_INODES:
+				u.Unit = "inodes"
+			default: // includes csipbv1.VolumeUsage_UNKNOWN
+				u.Unit = "unknown"
+			}
+			result.Usage = append(result.Usage, u)
+		}
+	}
+	return result
 }

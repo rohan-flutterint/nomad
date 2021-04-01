@@ -82,6 +82,7 @@ type CSINodeClient interface {
 	NodeUnstageVolume(ctx context.Context, in *csipbv1.NodeUnstageVolumeRequest, opts ...grpc.CallOption) (*csipbv1.NodeUnstageVolumeResponse, error)
 	NodePublishVolume(ctx context.Context, in *csipbv1.NodePublishVolumeRequest, opts ...grpc.CallOption) (*csipbv1.NodePublishVolumeResponse, error)
 	NodeUnpublishVolume(ctx context.Context, in *csipbv1.NodeUnpublishVolumeRequest, opts ...grpc.CallOption) (*csipbv1.NodeUnpublishVolumeResponse, error)
+	NodeGetVolumeStats(ctx context.Context, in *csipbv1.NodeGetVolumeStatsRequest, opts ...grpc.CallOption) (*csipbv1.NodeGetVolumeStatsResponse, error)
 }
 
 type client struct {
@@ -745,4 +746,34 @@ func (c *client) NodeUnpublishVolume(ctx context.Context, volumeID, targetPath s
 	}
 
 	return err
+}
+
+func (c *client) NodeGetVolumeStats(ctx context.Context, externalID, targetPath, stagingPath string, opts ...grpc.CallOption) (*NodeGetVolumeStatsResponse, error) {
+
+	if externalID == "" {
+		return nil, fmt.Errorf("missing externalID")
+	}
+	if targetPath == "" {
+		return nil, fmt.Errorf("missing targetPath")
+	}
+
+	req := &csipbv1.NodeGetVolumeStatsRequest{
+		VolumeId:          externalID,
+		VolumePath:        targetPath,
+		StagingTargetPath: stagingPath, // note: optional
+	}
+
+	resp, err := c.nodeClient.NodeGetVolumeStats(ctx, req)
+	if err != nil {
+		code := status.Code(err)
+		switch code {
+		case codes.NotFound:
+			err = fmt.Errorf("%w: volume %q could not be found: %v",
+				structs.ErrCSIClientRPCIgnorable, externalID, err)
+		case codes.Internal:
+			err = fmt.Errorf("node plugin returned an internal error, check the plugin allocation logs for more information: %v", err)
+		}
+		return nil, err
+	}
+	return NewNodeGetVolumeStatsResponse(resp), nil
 }

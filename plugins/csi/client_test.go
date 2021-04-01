@@ -1076,6 +1076,7 @@ func TestClient_RPC_NodePublishVolume(t *testing.T) {
 		})
 	}
 }
+
 func TestClient_RPC_NodeUnpublishVolume(t *testing.T) {
 	cases := []struct {
 		Name        string
@@ -1125,6 +1126,104 @@ func TestClient_RPC_NodeUnpublishVolume(t *testing.T) {
 				require.EqualError(t, err, tc.ExpectedErr.Error())
 			} else {
 				require.Nil(t, err)
+			}
+		})
+	}
+}
+
+func TestClient_RPC_NodeGetVolumeStats(t *testing.T) {
+	cases := []struct {
+		Name             string
+		ExternalID       string
+		TargetPath       string
+		ResponseErr      error
+		Response         *csipbv1.NodeGetVolumeStatsResponse
+		ExpectedErr      error
+		ExpectedResponse *NodeGetVolumeStatsResponse
+	}{
+		{
+			Name:        "handles underlying grpc errors",
+			ExternalID:  "foo",
+			TargetPath:  "/dev/null",
+			ResponseErr: status.Errorf(codes.Internal, "some grpc error"),
+			ExpectedErr: fmt.Errorf("node plugin returned an internal error, check the plugin allocation logs for more information: rpc error: code = Internal desc = some grpc error"),
+		},
+		{
+			Name:       "handles success",
+			ExternalID: "foo",
+			TargetPath: "/dev/null",
+			Response: &csipbv1.NodeGetVolumeStatsResponse{
+				VolumeCondition: &csipbv1.VolumeCondition{
+					Abnormal: true,
+					Message:  "oh no!",
+				},
+				Usage: []*csipbv1.VolumeUsage{
+					{
+						Available: 10000,
+						Total:     20000,
+						Used:      150,
+						Unit:      csipbv1.VolumeUsage_BYTES,
+					},
+					{
+						Available: 25000,
+						Total:     25000,
+						Used:      0,
+						Unit:      csipbv1.VolumeUsage_INODES,
+					},
+				},
+			},
+			ExpectedErr: nil,
+			ExpectedResponse: &NodeGetVolumeStatsResponse{
+				Condition: &VolumeCondition{
+					Abnormal: true,
+					Message:  "oh no!",
+				},
+				Usage: []*VolumeStatUsage{
+					{
+						Available: 10000,
+						Total:     20000,
+						Used:      150,
+						Unit:      "bytes",
+					},
+					{
+						Available: 25000,
+						Total:     25000,
+						Used:      0,
+						Unit:      "inodes",
+					},
+				},
+			},
+		},
+		{
+			Name:        "Performs validation of the request args - ExternalID",
+			ResponseErr: nil,
+			ExpectedErr: errors.New("missing externalID"),
+		},
+		{
+			Name:        "Performs validation of the request args - TargetPath",
+			ExternalID:  "foo",
+			ResponseErr: nil,
+			ExpectedErr: errors.New("missing targetPath"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.Name, func(t *testing.T) {
+			_, _, nc, client := newTestClient()
+			defer client.Close()
+
+			nc.NextErr = tc.ResponseErr
+			nc.NextGetVolumeStatsResponse = tc.Response
+			resp, err := client.NodeGetVolumeStats(
+				context.TODO(), tc.ExternalID, tc.TargetPath, "")
+
+			if tc.ExpectedErr != nil {
+				require.EqualError(t, err, tc.ExpectedErr.Error())
+			} else {
+				require.Nil(t, err)
+			}
+			if tc.ExpectedResponse != nil {
+				require.Equal(t, tc.ExpectedResponse, resp)
 			}
 		})
 	}

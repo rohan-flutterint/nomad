@@ -84,6 +84,10 @@ type Client struct {
 
 	NextNodeUnpublishVolumeErr   error
 	NodeUnpublishVolumeCallCount int64
+
+	NextNodeGetVolumeStatsResponse  *csi.NodeGetVolumeStatsResponse
+	NextNodeGetVolumeStatsErr       error
+	NodeNodeGetVolumeStatsCallCount int64
 }
 
 // PluginInfo describes the type and version of a plugin.
@@ -265,6 +269,15 @@ func (c *Client) NodeUnpublishVolume(ctx context.Context, volumeID, targetPath s
 	return c.NextNodeUnpublishVolumeErr
 }
 
+func (c *Client) NodeGetVolumeStats(ctx context.Context, volumeID, targetPath, stagingPath string, opts ...grpc.CallOption) (*csi.NodeGetVolumeStatsResponse, error) {
+	c.Mu.Lock()
+	defer c.Mu.Unlock()
+
+	c.NodeGetVolumeStatsCallCount++
+
+	return c.NextNodeGetVolumeStatsResponse, c.NextNodeGetVolumeStatsErr
+}
+
 // Shutdown the client and ensure any connections are cleaned up.
 func (c *Client) Close() error {
 
@@ -305,6 +318,8 @@ func (c *Client) Close() error {
 	c.NextNodePublishVolumeErr = fmt.Errorf("closed client")
 
 	c.NextNodeUnpublishVolumeErr = fmt.Errorf("closed client")
+
+	c.NextNodeGetVolumeStatsErr = fmt.Errorf("closed client")
 
 	return nil
 }
