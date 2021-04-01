@@ -353,6 +353,57 @@ func (c *CSI) NodeDetachVolume(req *structs.ClientCSINodeDetachVolumeRequest, re
 	return nil
 }
 
+// NodeGetVolumeStats is used to detach a volume from a CSI Cluster from
+// the storage node provided in the request.
+func (c *CSI) NodeGetVolumeStats(req *structs.ClientCSINodeGetVolumeStatsRequest, resp *structs.ClientCSINodeGetVolumeStatsResponse) error {
+	defer metrics.MeasureSince([]string{"client", "csi_node", "get_volume_stats"}, time.Now())
+
+	if req.PluginID == "" {
+		return errors.New("CSI.NodeGetVolumeStats: PluginID is required")
+	}
+
+	plugin, err := c.findPlugin(dynamicplugins.PluginTypeCSINode, req.PluginID)
+	if err != nil {
+		// the server's view of the plugin health is stale, so let it know it
+		// should retry with another controller instance
+		return fmt.Errorf("CSI.NodeGetVolumeStats: %w: %v",
+			nstructs.ErrCSIClientRPCRetryable, err)
+	}
+	defer plugin.Close()
+	ctx, cancelFn := c.requestContext()
+	defer cancelFn()
+
+	mounter, err := c.c.csimanager.MounterForPlugin(ctx, req.PluginID)
+	if err != nil {
+		return fmt.Errorf("CSI.NodeDetachVolume: %v", err)
+	}
+
+	// CSI NodeGetVolumeStats errors for timeout, codes.Unavailable and
+	// codes.ResourceExhausted are retried; all other errors are fatal.
+	cresp, err := plugin.NodeGetVolumeStats(
+		ctx, req.ExternalID, req.TargetPath, req.StagingPath,
+		grpc_retry.WithPerRetryTimeout(CSIPluginRequestTimeout),
+		grpc_retry.WithMax(3),
+		grpc_retry.WithBackoff(grpc_retry.BackoffExponential(100*time.Millisecond)))
+	if err != nil {
+		return fmt.Errorf("CSI.NodeGetVolumeStats: %v", err)
+	}
+
+	resp.IsAbnormal = cresp.Condition.Abnormal
+	resp.Status = cresp.Condition.Message
+	resp.Usage = []*nstructs.CSIVolumeStatUsage{}
+	for _, usage := range cresp.Usage {
+		resp.Usage = append(resp.Usage, &nstructs.CSIVolumeStatUsage{
+			Available: usage.Available,
+			Total:     usage.Total,
+			Used:      usage.Used,
+			Unit:      usage.Unit,
+		})
+	}
+
+	return nil
+}
+
 func (c *CSI) findControllerPlugin(name string) (csi.CSIPlugin, error) {
 	return c.findPlugin(dynamicplugins.PluginTypeCSIController, name)
 }

@@ -301,3 +301,16 @@ type ClientCSINodeDetachVolumeRequest struct {
 }
 
 type ClientCSINodeDetachVolumeResponse struct{}
+
+// ClientCSINodeGetVolumeStatsRequest is the RPC made from the server to get
+// the current volume usage statistics for an external storage volume.
+type ClientCSINodeGetVolumeStatsRequest struct {
+	PluginID   string
+	ExternalID string
+}
+
+type ClientCSINodeGetVolumeStatsResponse struct {
+	IsAbnormal bool
+	Status     string
+	Usage      []*structs.CSIVolumeStatUsage
+}

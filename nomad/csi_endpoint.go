@@ -216,11 +216,67 @@ func (v *CSIVolume) Get(args *structs.CSIVolumeGetRequest, reply *structs.CSIVol
 			if err != nil {
 				return err
 			}
-
 			reply.Volume = vol
+
+			if args.Stats {
+				// Volume stats are expensive, so we want to opt-in to
+				// fetching them from the plugin. Because the rest of this RPC
+				// has already succeeded, we'll annotate the stats with any
+				// plugin error we get rather than failing and returning an
+				// error here.
+				stats, err := v.getVolumeStats(vol)
+				if err != nil {
+					reply.Stats = &structs.CSIVolumeStats{
+						Status: err.Error(),
+					}
+				}
+				reply.Stats = stats
+			}
+
 			return v.srv.replySetIndex(csiVolumeTable, &reply.QueryMeta)
 		}}
 	return v.srv.blockingRPC(&opts)
+}
+
+func (v *CSIVolume) getVolumeStats(vol *structs.CSIVolume) (*structs.CSIVolumeStats, error) {
+	state := v.srv.fsm.State()
+
+	// some volumes can have multiple claims, so just grab the first one we
+	// can find and use its node to find the node we need to send the RPC to.
+	nodeID := ""
+	for _, claim := range vol.WriteClaims {
+		nodeID = claim.NodeID
+		break
+	}
+	if nodeID == "" {
+		for _, claim := range vol.ReadClaims {
+			nodeID = claim.NodeID
+			break
+		}
+	}
+	if nodeID == "" {
+		return nil, errors.New("volume is not attached")
+	}
+
+	plugin, err := state.CSIPluginByID(nil, vol.PluginID)
+	if err != nil {
+		return nil, err
+	}
+	if plugin == nil {
+		return nil, fmt.Errorf("no CSI plugin named: %s could be found", vol.PluginID)
+	}
+
+	// TODO: check plugin has GET_VOLUME_STATS or VOLUME_CONDITION
+
+	method := "ClientCSI.NodeGetVolumeStats"
+	cReq := &cstructs.ClientCSINodeGetVolumeStatsRequest{
+		ExternalID: vol.RemoteID(),
+		NodeID:     nodeID,
+	}
+	cReq.PluginID = plugin.ID
+	cResp := &cstructs.ClientCSIControllerValidateVolumeResponse{}
+
+	return v.srv.RPC(method, cReq, cResp)
 }
 
 func (v *CSIVolume) pluginValidateVolume(req *structs.CSIVolumeRegisterRequest, vol *structs.CSIVolume) (*structs.CSIPlugin, error) {

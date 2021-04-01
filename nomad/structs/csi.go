@@ -755,12 +755,14 @@ type CSIVolumeExternalStub struct {
 }
 
 type CSIVolumeGetRequest struct {
-	ID string
+	ID    string
+	Stats bool
 	QueryOptions
 }
 
 type CSIVolumeGetResponse struct {
 	Volume *CSIVolume
+	Stats  *CSIVolumeStats
 	QueryMeta
 }
 
@@ -772,6 +774,19 @@ type CSIVolumeUnpublishRequest struct {
 
 type CSIVolumeUnpublishResponse struct {
 	QueryMeta
+}
+
+type CSIVolumeStats struct {
+	IsAbnormal bool
+	Status     string
+	Usage      []*CSIVolumeStatUsage
+}
+
+type CSIVolumeStatUsage struct {
+	Available int64
+	Total     int64
+	Used      int64
+	Unit      string
 }
 
 // CSIPlugin collects fingerprint info context for the plugin for clients

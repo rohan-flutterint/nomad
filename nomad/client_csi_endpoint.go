@@ -166,6 +166,32 @@ func (a *ClientCSI) NodeDetachVolume(args *cstructs.ClientCSINodeDetachVolumeReq
 
 }
 
+func (a *ClientCSI) NodeGetVolumeStats(args *cstructs.ClientCSINodeGetVolumeStatsRequest, reply *cstructs.ClientCSINodeGetVolumeStatsResponse) error {
+	defer metrics.MeasureSince(
+		[]string{"nomad", "client_csi_node", "get_volume_stats"}, time.Now())
+
+	// Get a connection to a node that's valid and new enough to support RPC
+	snap, err := a.srv.State().Snapshot()
+	if err != nil {
+		return err
+	}
+	_, err = getNodeForRpc(snap, args.NodeID)
+	if err != nil {
+		return err
+	}
+	state, ok := a.srv.getNodeConn(args.NodeID)
+	if !ok {
+		return findNodeConnAndForward(
+			a.srv, args.NodeID, "ClientCSI.NodeGetVolumeStats", args, reply)
+	}
+
+	err = NodeRpc(state.Session, "CSI.NodeGetVolumeStats", args, reply)
+	if err != nil {
+		return fmt.Errorf("node get volume stats: %v", err)
+	}
+	return nil
+}
+
 // clientIDsForController returns a shuffled list of client IDs where the
 // controller plugin is expected to be running.
 func (a *ClientCSI) clientIDsForController(pluginID string) ([]string, error) {
