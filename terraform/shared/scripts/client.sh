@@ -9,6 +9,9 @@ NOMADCONFIGDIR=/etc/nomad.d
 CONSULTEMPLATECONFIGDIR=/etc/consul-template.d
 HOME_DIR=ubuntu
 
+CNIPLUGINSVERSION="0.9.1"
+CNIPLUGINSDOWNLOADURL="https://github.com/containernetworking/plugins/releases/download/v${CNIPLUGINSVERSION}/cni-plugins-linux-$( [ $(uname -m) = aarch64 ] && echo arm64 || echo amd64)-v${CNIPLUGINSVERSION}.tgz"
+
 # Wait for network
 sleep 15
 
@@ -31,6 +34,16 @@ sed -i "s/RETRY_JOIN/$RETRY_JOIN/g" $CONFIGDIR/consul_client.json
 sudo cp $CONFIGDIR/consul_client.json $CONSULCONFIGDIR/consul.json
 sudo cp $CONFIGDIR/consul_$CLOUD.service /etc/systemd/system/consul.service
 
+# dnsmasq config
+echo "DNSStubListener=no" | sudo tee -a /etc/systemd/resolved.conf
+sudo cp $CONFIGDIR/10-consul.dnsmasq /etc/dnsmasq.d/10-consul
+sudo cp $CONFIGDIR/99-default.dnsmasq.$CLOUD /etc/dnsmasq.d/99-default
+sudo mv /etc/resolv.conf /etc/resolv.conf.orig
+grep -v "nameserver" /etc/resolv.conf.orig | grep -v -e"^#" | grep -v -e '^$' | sudo tee /etc/resolv.conf
+echo "nameserver 127.0.0.1" | sudo tee -a /etc/resolv.conf
+sudo systemctl restart systemd-resolved
+sudo systemctl restart dnsmasq
+
 sudo systemctl enable consul.service
 sudo systemctl start consul.service
 sleep 10
@@ -52,6 +65,15 @@ sudo systemctl enable nomad.service
 sudo systemctl start nomad.service
 sleep 10
 export NOMAD_ADDR=http://$IP_ADDRESS:4646
+
+# Install CNI plugins
+curl -L -o cni-plugins.tgz $CNIPLUGINSDOWNLOADURL
+sudo mkdir -p /opt/cni/bin
+sudo tar -C /opt/cni/bin -xzf cni-plugins.tgz
+
+echo 1 > /proc/sys/net/bridge/bridge-nf-call-arptables
+echo 1 > /proc/sys/net/bridge/bridge-nf-call-ip6tables
+echo 1 > /proc/sys/net/bridge/bridge-nf-call-iptables
 
 # Consul Template
 

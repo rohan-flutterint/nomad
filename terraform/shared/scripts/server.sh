@@ -40,6 +40,16 @@ sleep 10
 export CONSUL_HTTP_ADDR=$IP_ADDRESS:8500
 export CONSUL_RPC_ADDR=$IP_ADDRESS:8400
 
+# dnsmasq config
+echo "DNSStubListener=no" | sudo tee -a /etc/systemd/resolved.conf
+sudo cp /ops/shared/config/10-consul.dnsmasq /etc/dnsmasq.d/10-consul
+sudo cp /ops/shared/config/99-default.dnsmasq.$CLOUD /etc/dnsmasq.d/99-default
+sudo mv /etc/resolv.conf /etc/resolv.conf.orig
+grep -v "nameserver" /etc/resolv.conf.orig | grep -v -e"^#" | grep -v -e '^$' | sudo tee /etc/resolv.conf
+echo "nameserver 127.0.0.1" | sudo tee -a /etc/resolv.conf
+sudo systemctl restart systemd-resolved
+sudo systemctl restart dnsmasq
+
 # Vault
 sed -i "s/IP_ADDRESS/$IP_ADDRESS/g" $CONFIGDIR/vault.hcl
 sudo cp $CONFIGDIR/vault.hcl $VAULTCONFIGDIR

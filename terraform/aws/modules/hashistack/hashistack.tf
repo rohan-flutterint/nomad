@@ -1,46 +1,3 @@
-variable "name" {
-}
-
-variable "region" {
-}
-
-variable "ami" {
-}
-
-variable "server_instance_type" {
-}
-
-variable "client_instance_type" {
-}
-
-variable "key_name" {
-}
-
-variable "server_count" {
-}
-
-variable "client_count" {
-}
-
-variable "nomad_binary" {
-}
-
-variable "root_block_device_size" {
-}
-
-variable "whitelist_ip" {
-}
-
-variable "retry_join" {
-  type = map(string)
-
-  default = {
-    provider  = "aws"
-    tag_key   = "ConsulAutoJoin"
-    tag_value = "auto-join"
-  }
-}
-
 data "aws_vpc" "default" {
   default = true
 }
@@ -54,7 +11,7 @@ resource "aws_security_group" "server_lb" {
     from_port   = 4646
     to_port     = 4646
     protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
+    cidr_blocks = [var.allowlist_ip]
   }
 
   # Consul
@@ -62,7 +19,53 @@ resource "aws_security_group" "server_lb" {
     from_port   = 8500
     to_port     = 8500
     protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
+    cidr_blocks = [var.allowlist_ip]
+  }
+
+  # Vault
+  ingress {
+    from_port   = 8500
+    to_port     = 8500
+    protocol    = "tcp"
+    cidr_blocks = [var.allowlist_ip]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "client_lb" {
+  name   = "${var.name}-client-lb"
+  vpc_id = data.aws_vpc.default.id
+
+  # HTTP
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.allowlist_ip]
+  }
+
+  # HTTPS
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.allowlist_ip]
+  }
+
+  dynamic "ingress" {
+    for_each = var.services
+    content {
+      from_port   = ingress.value["port"]
+      to_port     = ingress.value["port"]
+      protocol    = ingress.value["protocol"]
+      cidr_blocks = [var.allowlist_ip]
+    }
   }
 
   egress {
@@ -77,11 +80,12 @@ resource "aws_security_group" "primary" {
   name   = var.name
   vpc_id = data.aws_vpc.default.id
 
+  # SSH
   ingress {
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
+    cidr_blocks = [var.allowlist_ip]
   }
 
   # Nomad
@@ -89,16 +93,8 @@ resource "aws_security_group" "primary" {
     from_port       = 4646
     to_port         = 4646
     protocol        = "tcp"
-    cidr_blocks     = [var.whitelist_ip]
+    cidr_blocks     = [var.allowlist_ip]
     security_groups = [aws_security_group.server_lb.id]
-  }
-
-  # Fabio 
-  ingress {
-    from_port   = 9998
-    to_port     = 9999
-    protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
   }
 
   # Consul
@@ -106,40 +102,17 @@ resource "aws_security_group" "primary" {
     from_port       = 8500
     to_port         = 8500
     protocol        = "tcp"
-    cidr_blocks     = [var.whitelist_ip]
+    cidr_blocks     = [var.allowlist_ip]
     security_groups = [aws_security_group.server_lb.id]
   }
 
-  # HDFS NameNode UI
+  # Vault
   ingress {
-    from_port   = 50070
-    to_port     = 50070
-    protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
-  }
-
-  # HDFS DataNode UI
-  ingress {
-    from_port   = 50075
-    to_port     = 50075
-    protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
-  }
-
-  # Spark history server UI
-  ingress {
-    from_port   = 18080
-    to_port     = 18080
-    protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
-  }
-
-  # Jupyter
-  ingress {
-    from_port   = 8888
-    to_port     = 8888
-    protocol    = "tcp"
-    cidr_blocks = [var.whitelist_ip]
+    from_port       = 8200
+    to_port         = 8200
+    protocol        = "tcp"
+    cidr_blocks     = [var.allowlist_ip]
+    security_groups = [aws_security_group.server_lb.id]
   }
 
   ingress {
@@ -201,7 +174,7 @@ resource "aws_instance" "server" {
       "Name" = "${var.name}-server-${count.index}"
     },
     {
-      "${var.retry_join.tag_key}" = "${var.retry_join.tag_value}"
+      "${var.retry_join.tag_key}" = var.retry_join.tag_value
     },
   )
 
@@ -229,7 +202,7 @@ resource "aws_instance" "client" {
       "Name" = "${var.name}-client-${count.index}"
     },
     {
-      "${var.retry_join.tag_key}" = "${var.retry_join.tag_value}"
+      "${var.retry_join.tag_key}" = var.retry_join.tag_value
     },
   )
 
@@ -309,18 +282,29 @@ resource "aws_elb" "server_lb" {
     lb_port           = 8500
     lb_protocol       = "http"
   }
+  listener {
+    instance_port     = 8200
+    instance_protocol = "http"
+    lb_port           = 8200
+    lb_protocol       = "http"
+  }
   security_groups = [aws_security_group.server_lb.id]
 }
 
-output "server_public_ips" {
-   value = aws_instance.server[*].public_ip
-}
+resource "aws_elb" "client_lb" {
+  name               = "${var.name}-client-lb"
+  availability_zones = distinct(aws_instance.client.*.availability_zone)
+  internal           = false
+  instances          = aws_instance.client.*.id
+  security_groups    = [aws_security_group.client_lb.id]
 
-output "client_public_ips" {
-   value = aws_instance.client[*].public_ip
+  dynamic "listener" {
+    for_each = var.services
+    content {
+      instance_port     = listener.value["port"]
+      instance_protocol = listener.value["protocol"]
+      lb_port           = listener.value["port"]
+      lb_protocol       = listener.value["protocol"]
+    }
+  }
 }
-
-output "server_lb_ip" {
-  value = aws_elb.server_lb.dns_name
-}
-

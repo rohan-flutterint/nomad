@@ -16,5 +16,6 @@ module "hashistack" {
   retry_join             = var.retry_join
   nomad_binary           = var.nomad_binary
   root_block_device_size = var.root_block_device_size
-  whitelist_ip           = var.whitelist_ip
+  allowlist_ip           = var.allowlist_ip
+  services               = var.services
 }

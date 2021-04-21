@@ -2,24 +2,34 @@
 
 set -e
 
+echo "Waiting for cloud-init to update /etc/apt/sources.list"
+timeout 180 /bin/bash -c \
+  'until stat /var/lib/cloud/instance/boot-finished 2>/dev/null; do echo waiting ...; sleep 1; done'
+
 # Disable interactive apt prompts
 export DEBIAN_FRONTEND=noninteractive
+echo 'debconf debconf/frontend select Noninteractive' | sudo debconf-set-selections
 
 cd /ops
 
 CONFIGDIR=/ops/shared/config
 
-CONSULVERSION=1.8.3
+# Dependencies
+sudo apt-get install -y software-properties-common
+sudo apt-get update
+sudo apt-get install -y unzip tree redis-tools jq curl tmux dnsmasq
+
+CONSULVERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/consul | jq -r '.current_version')
 CONSULDOWNLOAD=https://releases.hashicorp.com/consul/${CONSULVERSION}/consul_${CONSULVERSION}_linux_amd64.zip
 CONSULCONFIGDIR=/etc/consul.d
 CONSULDIR=/opt/consul
 
-VAULTVERSION=1.5.3
+VAULTVERSION=1.7.0
 VAULTDOWNLOAD=https://releases.hashicorp.com/vault/${VAULTVERSION}/vault_${VAULTVERSION}_linux_amd64.zip
 VAULTCONFIGDIR=/etc/vault.d
 VAULTDIR=/opt/vault
 
-NOMADVERSION=0.12.4
+NOMADVERSION=$(curl -s https://checkpoint-api.hashicorp.com/v1/check/nomad | jq -r '.current_version')
 NOMADDOWNLOAD=https://releases.hashicorp.com/nomad/${NOMADVERSION}/nomad_${NOMADVERSION}_linux_amd64.zip
 NOMADCONFIGDIR=/etc/nomad.d
 NOMADDIR=/opt/nomad
@@ -29,11 +39,8 @@ CONSULTEMPLATEDOWNLOAD=https://releases.hashicorp.com/consul-template/${CONSULTE
 CONSULTEMPLATECONFIGDIR=/etc/consul-template.d
 CONSULTEMPLATEDIR=/opt/consul-template
 
-# Dependencies
-sudo apt-get install -y software-properties-common
-sudo apt-get update
-sudo apt-get install -y unzip tree redis-tools jq curl tmux
-
+# Disable motd-news
+echo "ENABLED=0" | sudo tee /etc/default/motd-news
 
 # Disable the firewall
 
@@ -84,7 +91,7 @@ sudo chmod 755 $NOMADCONFIGDIR
 sudo mkdir -p $NOMADDIR
 sudo chmod 755 $NOMADDIR
 
-# Consul Template 
+# Consul Template
 
 curl -L $CONSULTEMPLATEDOWNLOAD > consul-template.zip
 
@@ -102,70 +109,35 @@ sudo chmod 755 $CONSULTEMPLATEDIR
 
 # Docker
 distro=$(lsb_release -si | tr '[:upper:]' '[:lower:]')
-sudo apt-get install -y apt-transport-https ca-certificates gnupg2 
+sudo apt-get install -y apt-transport-https ca-certificates gnupg2
 curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
 sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${distro} $(lsb_release -cs) stable"
 sudo apt-get update
 sudo apt-get install -y docker-ce
 
 # Needs testing, updating and fixing
-if [[ ! -z ${INSTALL_NVIDIA_DOCKER+x} ]]; then 
+if [[ ! -z ${INSTALL_NVIDIA_DOCKER+x} ]]; then
+  sudo apt-get install -y linux-headers-generic dkms linux-headers-$(uname -r)
+
   # Install official NVIDIA driver package
-  sudo apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/7fa2af80.pub
-  sudo sh -c 'echo "deb http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64 /" > /etc/apt/sources.list.d/cuda.list'
-  sudo apt-get update && sudo apt-get install -y --no-install-recommends linux-headers-generic dkms cuda-drivers
+  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
+  sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
+  sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub
+  sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+  sudo apt-get update
+  sudo apt-get -y install cuda
 
   # Install nvidia-docker and nvidia-docker-plugin
-  # from: https://github.com/NVIDIA/nvidia-docker#ubuntu-140416041804-debian-jessiestretch
-  wget -P /tmp https://github.com/NVIDIA/nvidia-docker/releases/download/v1.0.1/nvidia-docker_1.0.1-1_amd64.deb
-  sudo dpkg -i /tmp/nvidia-docker*.deb && rm /tmp/nvidia-docker*.deb
-  curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add -
-  distribution=$(. /etc/os-release;echo $ID$VERSION_ID)
-  curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | \
-    sudo tee /etc/apt/sources.list.d/nvidia-docker.list
-
+  distribution=$(. /etc/os-release;echo $ID$VERSION_ID) \
+     && curl -s -L https://nvidia.github.io/nvidia-docker/gpgkey | sudo apt-key add - \
+     && curl -s -L https://nvidia.github.io/nvidia-docker/$distribution/nvidia-docker.list | sudo tee /etc/apt/sources.list.d/nvidia-docker.list
   sudo apt-get update
   sudo apt-get install -y nvidia-docker2
+  sudo systemctl restart docker
 fi
-
-# rkt
-# Note: rkt has been ended and archived. This should likely be removed. 
-# See https://github.com/rkt/rkt/issues/4024
-VERSION=1.30.0
-DOWNLOAD=https://github.com/rkt/rkt/releases/download/v${VERSION}/rkt-v${VERSION}.tar.gz
-
-function install_rkt() {
-	wget -q -O /tmp/rkt.tar.gz "${DOWNLOAD}"
-	tar -C /tmp -xvf /tmp/rkt.tar.gz
-	sudo mv /tmp/rkt-v${VERSION}/rkt /usr/local/bin
-	sudo mv /tmp/rkt-v${VERSION}/*.aci /usr/local/bin
-}
-
-function configure_rkt_networking() {
-	sudo mkdir -p /etc/rkt/net.d
-    sudo bash -c 'cat << EOT > /etc/rkt/net.d/99-network.conf
-{
-  "name": "default",
-  "type": "ptp",
-  "ipMasq": false,
-  "ipam": {
-    "type": "host-local",
-    "subnet": "172.16.28.0/24",
-    "routes": [
-      {
-        "dst": "0.0.0.0/0"
-      }
-    ]
-  }
-}
-EOT'
-}
-
-install_rkt
-configure_rkt_networking
 
 # Java
 sudo add-apt-repository -y ppa:openjdk-r/ppa
-sudo apt-get update 
+sudo apt-get update
 sudo apt-get install -y openjdk-8-jdk
 JAVA_HOME=$(readlink -f /usr/bin/java | sed "s:bin/java::")

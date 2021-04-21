@@ -2,8 +2,8 @@ variable "name" {
   description = "Used to name various infrastructure components"
 }
 
-variable "whitelist_ip" {
-  description = "IP to whitelist for the security groups (set 0.0.0.0/0 for world)"
+variable "allowlist_ip" {
+  description = "IP to allowlist for the security groups (set 0.0.0.0/0 for world)"
 }
 
 variable "region" {
@@ -57,4 +57,17 @@ variable "retry_join" {
 variable "nomad_binary" {
   description = "Used to replace the machine image installed Nomad binary."
   default     = "none"
+}
+
+variable "services" {
+  default = [
+    {
+      port     = 80
+      protocol = "tcp"
+    },
+    {
+      port     = 443
+      protocol = "tcp"
+    },
+  ]
 }
