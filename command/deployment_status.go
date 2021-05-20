@@ -3,11 +3,16 @@ package command
 import (
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/docker/docker/pkg/term"
+	"github.com/gosuri/uilive"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/api/contexts"
+	"github.com/hashicorp/nomad/nomad/structs"
 	"github.com/posener/complete"
 )
 
@@ -37,6 +42,9 @@ Status Options:
   -json
     Output the deployment in its JSON format.
 
+  -monitor
+    Enter monitor mode directly without modifying the deployment status.
+
   -t
     Format and display deployment using a Go template.
 `
@@ -52,6 +60,7 @@ func (c *DeploymentStatusCommand) AutocompleteFlags() complete.Flags {
 		complete.Flags{
 			"-verbose": complete.PredictNothing,
 			"-json":    complete.PredictNothing,
+			"-monitor": complete.PredictNothing,
 			"-t":       complete.PredictAnything,
 		})
 }
@@ -74,18 +83,21 @@ func (c *DeploymentStatusCommand) AutocompleteArgs() complete.Predictor {
 func (c *DeploymentStatusCommand) Name() string { return "deployment status" }
 
 func (c *DeploymentStatusCommand) Run(args []string) int {
-	var json, verbose bool
+	var json, verbose, monitor bool
 	var tmpl string
 
 	flags := c.Meta.FlagSet(c.Name(), FlagSetClient)
 	flags.Usage = func() { c.Ui.Output(c.Help()) }
 	flags.BoolVar(&verbose, "verbose", false, "")
 	flags.BoolVar(&json, "json", false, "")
+	flags.BoolVar(&monitor, "monitor", false, "")
 	flags.StringVar(&tmpl, "t", "", "")
 
 	if err := flags.Parse(args); err != nil {
 		return 1
 	}
+
+	// TODO Check that monitor isn't used with json OR t??
 
 	// Check that we got exactly one argument
 	args = flags.Args()
@@ -144,6 +156,15 @@ func (c *DeploymentStatusCommand) Run(args []string) int {
 		return 0
 	}
 
+	// call just to get meta
+	_, meta, _ := client.Deployments().Info(deploy.ID, nil) // FIXME error swallowing
+	if monitor {
+		c.Ui.Output(fmt.Sprintf("%s: Monitoring deployment %q",
+			formatTime(time.Now()), limit(deploy.ID, length)))
+		c.monitor(client, deploy.ID, meta.LastIndex, verbose)
+
+		return 0
+	}
 	c.Ui.Output(c.Colorize().Color(formatDeployment(client, deploy, length)))
 	return 0
 }
@@ -357,4 +378,92 @@ func formatDeploymentGroups(d *api.Deployment, uuidLength int) string {
 	}
 
 	return formatList(rows)
+}
+
+func hasAutoRevert(d *api.Deployment) bool {
+	taskGroups := d.TaskGroups
+	for _, state := range taskGroups {
+		if state.AutoRevert {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, index uint64, verbose bool) {
+	writer := uilive.New()
+	writer.Start()
+
+	q := api.QueryOptions{
+		AllowStale: true,
+		WaitIndex:  index,
+		WaitTime:   time.Duration(5 * time.Second), // TODO cut this down?
+	}
+
+	var length int
+	if verbose {
+		length = fullId
+	} else {
+		length = shortId
+	}
+
+	for {
+		deploy, meta, err := client.Deployments().Info(deployID, &q)
+		if err != nil {
+			c.Ui.Error(c.Colorize().Color("Error fetching deployment"))
+			return
+		}
+
+		status := deploy.Status
+		info := formatDeployment(client, deploy, length)
+		// c.Ui.Output(c.Colorize().Color(formatDeployment(client, deploy, length)))
+
+		if verbose {
+			info += "\n\nAllocations\n"
+			allocs, _, err := client.Deployments().Allocations(deployID, nil)
+			if err != nil {
+				info += "Error fetching allocations"
+				// c.Ui.Error(c.Colorize().Color("Error fetching allocations"))
+			} else {
+				info += formatAllocListStubs(allocs, verbose, length)
+				// c.Ui.Output(c.Colorize().Color(formatAllocListStubs(allocs, verbose, length)))
+			}
+		}
+
+		// Print in place if tty
+		_, isStdoutTerminal := term.GetFdInfo(os.Stdout)
+		if isStdoutTerminal {
+			fmt.Fprintf(writer, "%s\n", info) // FIXME Doesn't handle bold formatting
+		} else {
+			c.Ui.Output(c.Colorize().Color(info))
+		}
+
+		switch status {
+		case structs.DeploymentStatusFailed:
+			if hasAutoRevert(deploy) {
+				// wait for rollback to launch
+				time.Sleep(1 * time.Second) // FIXME this seems hacky; better way?
+				rollback, _, err := client.Jobs().LatestDeployment(deploy.JobID, nil)
+
+				if err != nil {
+					c.Ui.Error(c.Colorize().Color("Error fetching deployment of previous job version"))
+					return
+				}
+				c.monitor(client, rollback.ID, index, verbose)
+			}
+			return
+
+		case structs.DeploymentStatusSuccessful:
+		case structs.DeploymentStatusCancelled:
+		case structs.DeploymentStatusBlocked:
+			return
+		default:
+			q.WaitIndex = meta.LastIndex
+			continue
+		}
+
+		writer.Stop()
+		return
+	}
+
 }
