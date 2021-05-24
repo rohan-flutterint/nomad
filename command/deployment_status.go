@@ -97,7 +97,11 @@ func (c *DeploymentStatusCommand) Run(args []string) int {
 		return 1
 	}
 
-	// TODO Check that monitor isn't used with json OR t??
+	// Check that json or tmpl isn't set with monitor
+	if monitor && (json || len(tmpl) > 0) {
+		c.Ui.Error("The monitor flag cannot be used with the '-json' or '-t' flags")
+		return 1
+	}
 
 	// Check that we got exactly one argument
 	args = flags.Args()
@@ -156,9 +160,13 @@ func (c *DeploymentStatusCommand) Run(args []string) int {
 		return 0
 	}
 
-	// call just to get meta
-	_, meta, _ := client.Deployments().Info(deploy.ID, nil) // FIXME error swallowing
 	if monitor {
+		// Call just to get meta
+		_, meta, err := client.Deployments().Info(deploy.ID, nil)
+		if err != nil {
+			c.Ui.Error(fmt.Sprintf("Error retrieving deployment: %s", err))
+		}
+
 		c.Ui.Output(fmt.Sprintf("%s: Monitoring deployment %q",
 			formatTime(time.Now()), limit(deploy.ID, length)))
 		c.monitor(client, deploy.ID, meta.LastIndex, verbose)
@@ -397,7 +405,7 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 	q := api.QueryOptions{
 		AllowStale: true,
 		WaitIndex:  index,
-		WaitTime:   time.Duration(5 * time.Second), // TODO cut this down?
+		WaitTime:   2 * time.Second,
 	}
 
 	var length int
@@ -415,18 +423,16 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 		}
 
 		status := deploy.Status
-		info := formatDeployment(client, deploy, length)
-		// c.Ui.Output(c.Colorize().Color(formatDeployment(client, deploy, length)))
+		info := formatTime(time.Now())
+		info += fmt.Sprintf("\n%s", formatDeployment(client, deploy, length))
 
 		if verbose {
 			info += "\n\nAllocations\n"
 			allocs, _, err := client.Deployments().Allocations(deployID, nil)
 			if err != nil {
 				info += "Error fetching allocations"
-				// c.Ui.Error(c.Colorize().Color("Error fetching allocations"))
 			} else {
 				info += formatAllocListStubs(allocs, verbose, length)
-				// c.Ui.Output(c.Colorize().Color(formatAllocListStubs(allocs, verbose, length)))
 			}
 		}
 
@@ -435,20 +441,22 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 		if isStdoutTerminal {
 			fmt.Fprintf(writer, "%s\n", info) // FIXME Doesn't handle bold formatting
 		} else {
-			c.Ui.Output(c.Colorize().Color(info))
+			// Add newline before output to avoid prefix indentation when called from job run
+			c.Ui.Output(c.Colorize().Color(fmt.Sprintf("\n%s", info)))
 		}
 
 		switch status {
 		case structs.DeploymentStatusFailed:
 			if hasAutoRevert(deploy) {
-				// wait for rollback to launch
-				time.Sleep(1 * time.Second) // FIXME this seems hacky; better way?
+				// Wait for rollback to launch
+				time.Sleep(1 * time.Second)
 				rollback, _, err := client.Jobs().LatestDeployment(deploy.JobID, nil)
 
 				if err != nil {
 					c.Ui.Error(c.Colorize().Color("Error fetching deployment of previous job version"))
 					return
 				}
+				c.Ui.Output("") // Separate rollback monitoring from failed deployment
 				c.monitor(client, rollback.ID, index, verbose)
 			}
 			return

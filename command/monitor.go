@@ -288,16 +288,18 @@ func (m *monitor) monitor(evalID string) int {
 	// Monitor the deployment
 	dID := m.state.deployment
 	m.ui.Info(fmt.Sprintf("%s: Monitoring deployment %q", formatTime(time.Now()), limit(dID, m.length)))
-	var verbose bool // TODO Are verbose and length always coupled?
+
+	var verbose bool
 	if m.length == fullId {
 		verbose = true
 	} else {
 		verbose = false
 	}
 
-	cmd := &DeploymentStatusCommand{}
-	// FIXME ptr error on piping
-	cmd.monitor(m.client, dID, 0, verbose) // TODO return exit code on deploy fails?
+	meta := new(Meta)
+	meta.Ui = m.ui
+	cmd := &DeploymentStatusCommand{Meta: *meta}
+	cmd.monitor(m.client, dID, 0, verbose)
 
 	// Treat scheduling failures specially using a dedicated exit code.
 	// This makes it easier to detect failures from the CLI.
