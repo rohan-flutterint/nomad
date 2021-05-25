@@ -427,7 +427,7 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 		info += fmt.Sprintf("\n%s", formatDeployment(client, deploy, length))
 
 		if verbose {
-			info += "\n\nAllocations\n"
+			info += "\n\n[bold]Allocations[reset]\n"
 			allocs, _, err := client.Deployments().Allocations(deployID, nil)
 			if err != nil {
 				info += "Error fetching allocations"
@@ -436,13 +436,15 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 			}
 		}
 
+		// Add newline before output to avoid prefix indentation when called from job run
+		msg := c.Colorize().Color(fmt.Sprintf("\n%s", info))
+
 		// Print in place if tty
 		_, isStdoutTerminal := term.GetFdInfo(os.Stdout)
 		if isStdoutTerminal {
-			fmt.Fprintf(writer, "%s\n", info) // FIXME Doesn't handle bold formatting
+			fmt.Fprint(writer, msg)
 		} else {
-			// Add newline before output to avoid prefix indentation when called from job run
-			c.Ui.Output(c.Colorize().Color(fmt.Sprintf("\n%s", info)))
+			c.Ui.Output(msg)
 		}
 
 		switch status {
