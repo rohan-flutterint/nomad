@@ -10,8 +10,6 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/term"
-	"github.com/hashicorp/nomad/api"
-	"github.com/hashicorp/nomad/api/contexts"
 	"github.com/hashicorp/nomad/nomad/structs"
 	glint "github.com/mitchellh/go-glint"
 	"github.com/posener/complete"
@@ -404,7 +402,10 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 	// writer.Start()
 
 	d := glint.New()
-	// d.SetRefreshRate(500 * time.Millisecond)
+	d.SetRefreshRate(500 * time.Millisecond)
+	ctx := context.Background()
+	go d.Render(ctx)
+	defer ctx.Done()
 
 	q := api.QueryOptions{
 		AllowStale: true,
@@ -447,10 +448,11 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 		_, isStdoutTerminal := term.GetFdInfo(os.Stdout)
 		if isStdoutTerminal {
 			// fmt.Fprint(writer, msg)
-			d.Append(
-				glint.TextFunc(func(row, cols uint) string {
-					return msg
-				}),
+			d.Set(
+				glint.Style(
+					glint.TextFunc(func(row, cols uint) string {
+						return msg
+					})),
 			)
 		} else {
 			c.Ui.Output(msg)
@@ -481,8 +483,8 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 			continue
 		}
 
-		d.Render(context.Background())
-		context.Background().Done()
+		//d.Render(context.Background())
+		//context.Background().Done()
 		// writer.Stop()
 		return
 	}
