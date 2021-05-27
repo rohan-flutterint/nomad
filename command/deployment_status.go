@@ -1,6 +1,7 @@
 package command
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -9,10 +10,10 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/term"
-	"github.com/gosuri/uilive"
 	"github.com/hashicorp/nomad/api"
 	"github.com/hashicorp/nomad/api/contexts"
 	"github.com/hashicorp/nomad/nomad/structs"
+	glint "github.com/mitchellh/go-glint"
 	"github.com/posener/complete"
 )
 
@@ -399,8 +400,11 @@ func hasAutoRevert(d *api.Deployment) bool {
 }
 
 func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, index uint64, verbose bool) {
-	writer := uilive.New()
-	writer.Start()
+	// writer := uilive.New()
+	// writer.Start()
+
+	d := glint.New()
+	// d.SetRefreshRate(500 * time.Millisecond)
 
 	q := api.QueryOptions{
 		AllowStale: true,
@@ -442,7 +446,12 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 		// Print in place if tty
 		_, isStdoutTerminal := term.GetFdInfo(os.Stdout)
 		if isStdoutTerminal {
-			fmt.Fprint(writer, msg)
+			// fmt.Fprint(writer, msg)
+			d.Append(
+				glint.TextFunc(func(row, cols uint) string {
+					return msg
+				}),
+			)
 		} else {
 			c.Ui.Output(msg)
 		}
@@ -472,8 +481,9 @@ func (c *DeploymentStatusCommand) monitor(client *api.Client, deployID string, i
 			continue
 		}
 
-		writer.Stop()
+		d.Render(context.Background())
+		context.Background().Done()
+		// writer.Stop()
 		return
 	}
-
 }
