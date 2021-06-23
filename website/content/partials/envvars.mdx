@@ -94,7 +94,7 @@
       </td>
       <td>
         Job's ID, which is equal to the Job name when submitted through
-        CLI but can be different when using the API
+        command-line tool but can be different when using the API
       </td>
     </tr>
     <tr>
@@ -133,11 +133,7 @@
       </td>
       <td>
         The metadata value given by <code>key</code> on the task's
-        metadata. Note that this is different from
-        <a href="/docs/runtime/interpolation#node-variables-">
-          <code>$&#123;meta.&lt;key&gt;&#125;</code>
-        </a>
-        which are keys in the node's metadata.
+        metadata. Note that this is different from <a href="/docs/runtime/interpolation#node-variables-"><code>$&#123;meta.&lt;key&gt;&#125;</code></a> which are keys in the node's metadata.
       </td>
     </tr>
     <tr>
@@ -145,9 +141,7 @@
         <code>VAULT_TOKEN</code>
       </td>
       <td>
-        The task's Vault token. See
-        <a href="/docs/vault-integration"> Vault Integration </a>
-        for more details
+        The task's Vault token. See <a href="/docs/vault-integration">Vault Integration</a> for more details
       </td>
     </tr>
     <tr>
@@ -239,8 +233,7 @@
         <code>NOMAD_UPSTREAM_IP_&lt;service&gt;</code>
       </td>
       <td>
-        IP for the given <code>service</code> when defined as a Consul Connect
-        <a href="/docs/job-specification/upstreams"> upstream</a>.
+        IP for the given <code>service</code> when defined as a Consul service mesh <a href="/docs/job-specification/upstreams"> upstream</a>.
       </td>
     </tr>
     <tr>
@@ -248,8 +241,7 @@
         <code>NOMAD_UPSTREAM_PORT_&lt;service&gt;</code>
       </td>
       <td>
-        Port for the given <code>service</code> when defined as a Consul Connect
-        <a href="/docs/job-specification/upstreams"> upstream</a>.
+        Port for the given <code>service</code> when defined as a Consul service mesh <a href="/docs/job-specification/upstreams"> upstream</a>.
       </td>
     </tr>
     <tr>
@@ -257,9 +249,7 @@
         <code>NOMAD_UPSTREAM_ADDR_&lt;service&gt;</code>
       </td>
       <td>
-        Host <code>IP:Port</code> for the given <code>service</code> when
-        defined as a Consul Connect
-        <a href="/docs/job-specification/upstreams"> upstream</a>.
+        Host <code>IP:Port</code> for the given <code>service</code> when defined as a Consul service mesh <a href="/docs/job-specification/upstreams"> upstream</a>.
       </td>
     </tr>
     <tr>
@@ -268,8 +258,8 @@
       </td>
       <td>
         Local address <code>127.0.0.2:Port</code> for the admin port of the
-        envoy sidecar for the given <code>service</code> when defined as a
-        Consul Connect enabled service. Envoy runs inside the group network
+        Envoy sidecar for the given <code>service</code> when defined as a
+        Consul service mesh enabled service. Envoy runs inside the group network
         namespace unless configured for host networking.
       </td>
     </tr>
@@ -279,8 +269,8 @@
         </td>
         <td>
           Local address <code>127.0.0.1:Port</code> for the ready port of the
-          envoy sidecar for the given <code>service</code> when defined as a
-          Consul Connect enabled service. Envoy runs inside the group network
+          Envoy sidecar for the given <code>service</code> when defined as a
+          Consul service mesh enabled service. Envoy runs inside the group network
           namespace unless configured for host networking.
         </td>
       </tr>
@@ -293,8 +283,8 @@
       </td>
       <td>
         Specifies the address to the local Consul agent. Will be automatically
-        set to a unix domain socket in bridge networking mode, or a tcp address in
-        host networking mode.
+        set to a UNIX domain socket in bridge networking mode, or a TCP address
+        in host networking mode.
       </td>
     </tr>
     <tr>
@@ -303,7 +293,7 @@
       </td>
       <td>
         Specifies the Consul ACL token used to authorize with Consul. Will be
-        automatically set to a generated Connect service identity token specific
+        automatically set to a generated Consul service identity token specific
         to the service instance if Consul ACLs are enabled.
       </td>
     </tr>
@@ -312,9 +302,9 @@
         <code>CONSUL_HTTP_SSL</code>
       </td>
       <td>
-        Specifies whether HTTPS should be used when communicating with consul. Will
-        be automatically set to true if Nomad is configured to communicate with
-        Consul using TLS.
+        Specifies whether HTTPS should be used when communicating with Consul.
+        Will be automatically set to true if Nomad is configured to communicate
+        with Consul using TLS.
       </td>
     </tr>
     <tr>
