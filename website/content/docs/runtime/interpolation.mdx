@@ -316,29 +316,17 @@ the task is running in. These are only defined once the task has been placed on
 a particular node and as such can not be used in constraints.
 
 Environment variables should be enclosed in brackets `${...}` for
-interpolation.
+interpolation or accessed using the `env` function inside of the template stanza—`{{env "..."}}`
 
 ### Dots in Variables ((#dots_in_vars))
 
-Starting in Nomad 0.9, task configuration interpolation requires variables to
-be valid identifiers. While this does not affect default variables or common
-custom variables, it is possible to define a variable that is not a valid
-identifier:
+Nomad interprets dots in names as object notation. So names that have multiple
+consecutive dots are invalid. For example, an environment variable named
+`invalid...name` cannot be interpolated using the standard `"${invalid...name}"`
+syntax.
 
-```hcl
-env {
-  "valid.name"     = "ok"
-  "invalid...name" = "not a valid identifier"
-}
-```
-
-The environment variable `invalid...name` cannot be interpolated using the
-standard `"${invalid...name}"` syntax. The dots will be interpreted as object
-notation so multiple consecutive dots are invalid.
-
-To continue supporting all user environment variables Nomad 0.9 added a new
-`env` variable which allows accessing any environment variable through index
-syntax:
+Nomad provides a variable—`env`—that can be used to access any environment
+variable regardless of name using index syntax. For example: 
 
 ```hcl
 task "redis" {
