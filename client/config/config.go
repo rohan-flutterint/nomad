@@ -274,6 +274,12 @@ type Config struct {
 
 	// ReservableCores if set overrides the set of reservable cores reported in fingerprinting.
 	ReservableCores []uint16
+
+	BuiltInDNS *DNS
+}
+
+type DNS struct {
+	Addr string
 }
 
 type ClientTemplateConfig struct {

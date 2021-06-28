@@ -3,6 +3,7 @@ package agent
 import (
 	"flag"
 	"fmt"
+	"github.com/hashicorp/nomad/command/agent/dns"
 	"io"
 	"log"
 	"os"
@@ -492,6 +493,16 @@ func (c *Command) setupAgent(config *Config, logger hclog.InterceptLogger, logOu
 		return err
 	}
 	c.httpServer = http
+
+	dnsSrv, err := dns.NewServer(logger, agent.config.Region, agent.config.NodeName, agent.RPC)
+	if err != nil {
+		panic(err)
+	}
+	go func() {
+		if err := dnsSrv.ListenAndServe(); err != nil {
+			panic(err)
+		}
+	}()
 
 	// If DisableUpdateCheck is not enabled, set up update checking
 	// (DisableUpdateCheck is false by default)

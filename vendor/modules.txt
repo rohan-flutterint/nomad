@@ -588,6 +588,7 @@ github.com/mattn/go-shellwords
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/miekg/dns v1.1.26
+## explicit
 github.com/miekg/dns
 # github.com/mitchellh/cli v1.1.0
 ## explicit

@@ -1018,6 +1018,12 @@ func (tr *TaskRunner) buildTaskConfig() *drivers.TaskConfig {
 		}
 	}
 
+	if tr.clientConfig.BuiltInDNS != nil && dns == nil {
+		dns = &drivers.DNSConfig{
+			Servers: []string{tr.clientConfig.BuiltInDNS.Addr},
+		}
+	}
+
 	memoryLimit := taskResources.Memory.MemoryMB
 	if max := taskResources.Memory.MemoryMaxMB; max > memoryLimit {
 		memoryLimit = max

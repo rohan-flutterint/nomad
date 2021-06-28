@@ -700,6 +700,8 @@ func convertClientConfig(agentConfig *Config) (*clientconfig.Config, error) {
 		conf.ReservableCores = cores.ToSlice()
 	}
 
+	conf.BuiltInDNS = &clientconfig.DNS{Addr: "10.0.2.15"}
+
 	return conf, nil
 }
 
