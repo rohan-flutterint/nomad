@@ -15,6 +15,9 @@ source "amazon-ebs" "hashistack" {
     most_recent = true
   }
 
+  # Uncomment this block and the INSTALL_NVIDIA_DOCKER environment variable
+  # below if you are deploying the Nvidia driver.
+  #
   #  launch_block_device_mappings {
   #    device_name = "/dev/sda1"
   #    volume_size = 16

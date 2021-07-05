@@ -24,8 +24,8 @@ resource "aws_security_group" "server_lb" {
 
   # Vault
   ingress {
-    from_port   = 8500
-    to_port     = 8500
+    from_port   = 8200
+    to_port     = 8200
     protocol    = "tcp"
     cidr_blocks = [var.allowlist_ip]
   }
@@ -94,7 +94,7 @@ resource "aws_security_group" "primary" {
     to_port         = 4646
     protocol        = "tcp"
     cidr_blocks     = [var.allowlist_ip]
-    security_groups = [aws_security_group.server_lb.id]
+    security_groups = [aws_security_group.server_lb.id, aws_security_group.client_lb.id]
   }
 
   # Consul
@@ -103,7 +103,7 @@ resource "aws_security_group" "primary" {
     to_port         = 8500
     protocol        = "tcp"
     cidr_blocks     = [var.allowlist_ip]
-    security_groups = [aws_security_group.server_lb.id]
+    security_groups = [aws_security_group.server_lb.id, aws_security_group.client_lb.id]
   }
 
   # Vault
@@ -112,7 +112,7 @@ resource "aws_security_group" "primary" {
     to_port         = 8200
     protocol        = "tcp"
     cidr_blocks     = [var.allowlist_ip]
-    security_groups = [aws_security_group.server_lb.id]
+    security_groups = [aws_security_group.server_lb.id, aws_security_group.client_lb.id]
   }
 
   ingress {
@@ -127,6 +127,40 @@ resource "aws_security_group" "primary" {
     to_port     = 0
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "client" {
+  name   = "${var.name}-client"
+  vpc_id = data.aws_vpc.default.id
+
+  # HTTP
+  ingress {
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    cidr_blocks     = [var.allowlist_ip]
+    security_groups = [aws_security_group.client_lb.id]
+  }
+
+  # HTTPS
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    cidr_blocks     = [var.allowlist_ip]
+    security_groups = [aws_security_group.client_lb.id]
+  }
+
+  dynamic "ingress" {
+    for_each = var.services
+    content {
+      from_port       = ingress.value["port"]
+      to_port         = ingress.value["port"]
+      protocol        = ingress.value["protocol"]
+      cidr_blocks     = [var.allowlist_ip]
+      security_groups = [aws_security_group.client_lb.id]
+    }
   }
 }
 
@@ -192,7 +226,7 @@ resource "aws_instance" "client" {
   ami                    = var.ami
   instance_type          = var.client_instance_type
   key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.primary.id]
+  vpc_security_group_ids = [aws_security_group.primary.id, aws_security_group.client.id]
   count                  = var.client_count
   depends_on             = [aws_instance.server]
 
@@ -267,35 +301,38 @@ data "aws_iam_policy_document" "auto_discover_cluster" {
 
 resource "aws_elb" "server_lb" {
   name               = "${var.name}-server-lb"
-  availability_zones = distinct(aws_instance.server.*.availability_zone)
+  availability_zones = distinct(aws_instance.server[*].availability_zone)
   internal           = false
-  instances          = aws_instance.server.*.id
+  instances          = aws_instance.server[*].id
+  security_groups    = [aws_security_group.server_lb.id]
+
   listener {
     instance_port     = 4646
     instance_protocol = "http"
     lb_port           = 4646
     lb_protocol       = "http"
   }
+
   listener {
     instance_port     = 8500
     instance_protocol = "http"
     lb_port           = 8500
     lb_protocol       = "http"
   }
+
   listener {
     instance_port     = 8200
     instance_protocol = "http"
     lb_port           = 8200
     lb_protocol       = "http"
   }
-  security_groups = [aws_security_group.server_lb.id]
 }
 
 resource "aws_elb" "client_lb" {
   name               = "${var.name}-client-lb"
-  availability_zones = distinct(aws_instance.client.*.availability_zone)
+  availability_zones = distinct(aws_instance.client[*].availability_zone)
   internal           = false
-  instances          = aws_instance.client.*.id
+  instances          = aws_instance.client[*].id
   security_groups    = [aws_security_group.client_lb.id]
 
   dynamic "listener" {
@@ -306,5 +343,13 @@ resource "aws_elb" "client_lb" {
       lb_port           = listener.value["port"]
       lb_protocol       = listener.value["protocol"]
     }
+  }
+
+  health_check {
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    timeout             = 3
+    target              = "TCP:4646"
+    interval            = 30
   }
 }
