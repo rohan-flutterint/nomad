@@ -9,7 +9,8 @@ description: Learn about the Nomad's interpolation and interpreted variables.
 Nomad supports interpreting two classes of variables: [node
 attributes](#interpreted_node_vars) and [runtime environment
 variables](#interpreted_env_vars). Node attributes are interpretable in
-constraints, task environment variables, and certain driver fields. Runtime
+[constraints](https://www.nomadproject.io/docs/job-specification/constraint),
+[task environment variables](https://www.nomadproject.io/docs/job-specification/env), and certain task driver fields—for example the [`labels`](https://www.nomadproject.io/docs/drivers/docker#labels) attribute of the Docker [`config`](https://www.nomadproject.io/docs/drivers/docker). Runtime
 environment variables are not interpretable in constraints because they are only
 defined once the scheduler has placed them on a particular node.
 
@@ -326,7 +327,7 @@ consecutive dots are invalid. For example, an environment variable named
 syntax.
 
 Nomad provides a variable—`env`—that can be used to access any environment
-variable regardless of name using index syntax. For example: 
+variable regardless of name using index syntax. For example:
 
 ```hcl
 task "redis" {
