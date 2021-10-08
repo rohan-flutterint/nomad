@@ -2,7 +2,10 @@ package nomad
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
+	memdb "github.com/hashicorp/go-memdb"
 	multierror "github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/nomad/structs"
@@ -172,6 +175,63 @@ func (jobImpliedConstraints) Mutate(j *structs.Job) (*structs.Job, []error, erro
 	}
 
 	return j, nil, nil
+}
+
+type jobDatacentersExpand struct {
+	srv *Server
+}
+
+func (*jobDatacentersExpand) Name() string {
+	return "expand datacenters"
+}
+
+func (m *jobDatacentersExpand) Mutate(j *structs.Job) (*structs.Job, []error, error) {
+	hasGlob := false
+	for _, dc := range j.Datacenters {
+		if strings.Contains(dc, "*") {
+			hasGlob = true
+			break
+		}
+	}
+
+	// Exit early if we don't have any '*' to expand.
+	if !hasGlob {
+		return j, nil, nil
+	}
+
+	// Scan the nodes to collect datacenters.
+	dcs := make(map[string]struct{})
+	var warnings []error
+
+	ws := memdb.NewWatchSet()
+	iter, err := m.srv.State().Nodes(ws)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for raw := iter.Next(); raw != nil; raw = iter.Next() {
+		node := raw.(*structs.Node)
+
+		for _, dc := range j.Datacenters {
+			match, err := filepath.Match(dc, node.Datacenter)
+			if err != nil {
+				warnings = append(warnings, err)
+				continue
+			}
+			if match {
+				dcs[node.Datacenter] = struct{}{}
+			}
+		}
+	}
+
+	if len(dcs) > 0 {
+		j.Datacenters = []string{}
+		for k := range dcs {
+			j.Datacenters = append(j.Datacenters, k)
+		}
+	}
+
+	return j, warnings, nil
 }
 
 // jobValidate validates a Job and task drivers and returns an error if there is

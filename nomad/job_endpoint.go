@@ -63,6 +63,7 @@ func NewJobEndpoints(s *Server) *Job {
 		logger: s.logger.Named("job"),
 		mutators: []jobMutator{
 			jobCanonicalizer{},
+			&jobDatacentersExpand{srv: s},
 			jobConnectHook{},
 			jobExposeCheckHook{},
 			jobImpliedConstraints{},
