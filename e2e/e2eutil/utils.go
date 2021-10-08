@@ -213,10 +213,11 @@ func WaitForAllocsStopped(t *testing.T, nomadClient *api.Client, allocIDs []stri
 	}
 }
 
-func WaitForAllocStopped(t *testing.T, nomadClient *api.Client, allocID string) {
+func WaitForAllocStopped(t *testing.T, nomadClient *api.Client, allocID string) (alloc *api.Allocation) {
+	var err error
 	testutil.WaitForResultRetries(retries, func() (bool, error) {
 		time.Sleep(time.Millisecond * 100)
-		alloc, _, err := nomadClient.Allocations().Info(allocID, nil)
+		alloc, _, err = nomadClient.Allocations().Info(allocID, nil)
 		if err != nil {
 			return false, err
 		}
@@ -234,6 +235,7 @@ func WaitForAllocStopped(t *testing.T, nomadClient *api.Client, allocID string) 
 	}, func(err error) {
 		require.NoError(t, err, "failed to wait on alloc")
 	})
+	return
 }
 
 func WaitForAllocStatus(t *testing.T, nomadClient *api.Client, allocID string, status string) {
