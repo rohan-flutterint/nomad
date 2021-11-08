@@ -360,7 +360,6 @@ func TestTask_Artifact(t *testing.T) {
 		GetterMode:    stringToPtr("file"),
 		GetterHeaders: make(map[string]string),
 		GetterOptions: make(map[string]string),
-		AlwaysFetch:   boolToPtr(false),
 	}
 	a.Canonicalize()
 	require.Equal(t, "file", *a.GetterMode)

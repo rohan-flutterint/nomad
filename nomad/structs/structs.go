@@ -7834,7 +7834,7 @@ func (event *TaskEvent) PopulateEventDisplayMessage() {
 	case TaskDownloadingArtifacts:
 		desc = "Client is downloading artifacts"
 	case TaskReDownloadingArtifacts:
-		desc = "Client is re-downloading artifacts since `always_fetch` is true"
+		desc = "Client is re-downloading artifacts since always_fetch=true"
 	case TaskArtifactDownloadFailed:
 		if event.DownloadError != "" {
 			desc = event.DownloadError

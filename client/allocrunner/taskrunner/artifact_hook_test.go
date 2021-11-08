@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"testing"
@@ -120,7 +121,7 @@ func TestTaskRunner_ArtifactHook_PartialDone(t *testing.T) {
 	require.True(t, structs.IsRecoverable(err))
 	require.Len(t, resp.State, 1)
 	require.False(t, resp.Done)
-	require.Len(t, me.events, 2)
+	require.Len(t, me.events, 1)
 	require.Equal(t, structs.TaskDownloadingArtifacts, me.events[0].Type)
 
 	// Remove file1 from the server so it errors if its downloaded again.
@@ -168,22 +169,25 @@ func TestTaskRunner_ArtifactHook_AlwaysFetch(t *testing.T) {
 	artifactHook := newArtifactHook(me, testlog.HCLogger(t))
 
 	// Create a source directory for the artifacts.
-	srcdir, err := ioutil.TempDir("", "nomadtest-src")
+	srcdir, err := ioutil.TempDir("", "nomadtest-always-fetch-src")
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.RemoveAll(srcdir))
 	}()
 
-	// Create a dummy file.
-	file1 := filepath.Join(srcdir, "foo.txt")
-	require.NoError(t, ioutil.WriteFile(file1, []byte("helloworld"), 0644))
+	// Create test files.
+	changedSrcPath := filepath.Join(srcdir, "changed.txt")
+	require.NoError(t, ioutil.WriteFile(changedSrcPath, []byte("changed value 1"), 0644))
+
+	staticSrcPath := filepath.Join(srcdir, "static.txt")
+	require.NoError(t, ioutil.WriteFile(staticSrcPath, []byte("static value 1"), 0644))
 
 	// Test server to serve the artifacts.
 	ts := httptest.NewServer(http.FileServer(http.Dir(srcdir)))
 	defer ts.Close()
 
 	// Create the target directory.
-	destdir, err := ioutil.TempDir("", "nomadtest-dest")
+	destdir, err := ioutil.TempDir("", "nomadtest-always-fetch-dest")
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, os.RemoveAll(destdir))
@@ -196,7 +200,12 @@ func TestTaskRunner_ArtifactHook_AlwaysFetch(t *testing.T) {
 			Artifacts: []*structs.TaskArtifact{
 				{
 					AlwaysFetch:  true,
-					GetterSource: ts.URL + "/foo.txt",
+					GetterSource: ts.URL + "/changed.txt",
+					GetterMode:   structs.GetterModeAny,
+				},
+				{
+					AlwaysFetch:  false,
+					GetterSource: ts.URL + "/static.txt",
 					GetterMode:   structs.GetterModeAny,
 				},
 			},
@@ -205,24 +214,30 @@ func TestTaskRunner_ArtifactHook_AlwaysFetch(t *testing.T) {
 
 	resp := interfaces.TaskPrestartResponse{}
 
-	// On first run file1 (foo) should download.
+	// On first run file1 (foo) should download twice but emit just one event.
 	err = artifactHook.Prestart(context.Background(), req, &resp)
 
 	require.NoError(t, err)
-	require.Len(t, resp.State, 1)
+	require.Len(t, resp.State, 2)
+	require.False(t, resp.Done)
 	require.Len(t, me.events, 1)
 	require.Equal(t, structs.TaskDownloadingArtifacts, me.events[0].Type)
 
 	// Mock TaskRunner by copying state from resp to req and reset resp.
 	req.PreviousState = helper.CopyMapStringString(resp.State)
 
-	resp = interfaces.TaskPrestartResponse{}
+	// Modify test files to verify re-download.
+	require.NoError(t, ioutil.WriteFile(changedSrcPath, []byte("changed value 2"), 0644))
+	require.NoError(t, ioutil.WriteFile(staticSrcPath, []byte("static value 2"), 0644))
 
 	// Run the prestart hook again and assert the artifact is fetched again.
+	// Only one re-download event is emitted.
+	resp = interfaces.TaskPrestartResponse{}
 	err = artifactHook.Prestart(context.Background(), req, &resp)
 
 	require.NoError(t, err)
-	require.Len(t, resp.State, 1)
+	require.Len(t, resp.State, 2)
+	require.False(t, resp.Done)
 	require.Len(t, me.events, 2)
 	require.Equal(t, structs.TaskReDownloadingArtifacts, me.events[1].Type)
 
@@ -230,5 +245,16 @@ func TestTaskRunner_ArtifactHook_AlwaysFetch(t *testing.T) {
 	files, err := filepath.Glob(filepath.Join(destdir, "*.txt"))
 	require.NoError(t, err)
 	sort.Strings(files)
-	require.Contains(t, files[0], "foo.txt")
+	require.Contains(t, files[0], "changed.txt")
+	require.Contains(t, files[1], "static.txt")
+
+	// Static file shouldn't change.
+	content, err := ioutil.ReadFile(path.Join(destdir, "static.txt"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("static value 1"), content)
+
+	// Changed file should change.
+	content, err = ioutil.ReadFile(path.Join(destdir, "changed.txt"))
+	require.NoError(t, err)
+	require.Equal(t, []byte("changed value 2"), content)
 }
