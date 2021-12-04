@@ -378,6 +378,7 @@ OUTER:
 				}
 
 				// Reserve this to prevent another task from colliding
+				//XXX Check return value?!
 				netIdx.AddReserved(offer)
 
 				// Update the network ask to the offer

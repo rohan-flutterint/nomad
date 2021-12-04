@@ -216,6 +216,7 @@ func (idx *NetworkIndex) AddReserved(n *NetworkResource) (collide bool) {
 		for _, port := range ports {
 			// Guard against invalid port
 			if port.Value < 0 || port.Value >= MaxValidPort {
+				//XXX Is it safe to return early here? or should we continue so used is properly updated
 				return true
 			}
 			if used.Check(uint(port.Value)) {

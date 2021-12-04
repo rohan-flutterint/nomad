@@ -193,6 +193,7 @@ func AllocsFit(node *Node, allocs []*Allocation, netIdx *NetworkIndex, checkDevi
 	}
 
 	// Check if the network is overcommitted
+	//XXX Remove
 	if netIdx.Overcommitted() {
 		return false, "bandwidth exceeded", used, nil
 	}

@@ -2529,6 +2529,12 @@ func (p AllocatedPorts) Get(label string) (AllocatedPortMapping, bool) {
 	return AllocatedPortMapping{}, false
 }
 
+func (p AllocatedPorts) Copy() AllocatedPorts {
+	n := make(AllocatedPorts, len(p))
+	copy(n, p)
+	return n
+}
+
 type Port struct {
 	// Label is the key for HCL port stanzas: port "foo" {}
 	Label string
@@ -3690,7 +3696,7 @@ func (a AllocatedSharedResources) Copy() AllocatedSharedResources {
 	return AllocatedSharedResources{
 		Networks: a.Networks.Copy(),
 		DiskMB:   a.DiskMB,
-		Ports:    a.Ports,
+		Ports:    a.Ports.Copy(),
 	}
 }
 
@@ -9121,6 +9127,21 @@ type DesiredTransition struct {
 	ForceReschedule *bool
 }
 
+// Copy returns a copy of the DesiredTransition
+func (d DesiredTransition) Copy() DesiredTransition {
+	cpy := DesiredTransition{}
+	if d.Migrate != nil {
+		cpy.Migrate = helper.BoolToPtr(*d.Migrate)
+	}
+	if d.Reschedule != nil {
+		cpy.Reschedule = helper.BoolToPtr(*d.Reschedule)
+	}
+	if d.ForceReschedule != nil {
+		cpy.ForceReschedule = helper.BoolToPtr(*d.ForceReschedule)
+	}
+	return cpy
+}
+
 // Merge merges the two desired transitions, preferring the values from the
 // passed in object.
 func (d *DesiredTransition) Merge(o *DesiredTransition) {
@@ -9373,9 +9394,9 @@ func (a *Allocation) copyImpl(job bool) *Allocation {
 		na.Job = na.Job.Copy()
 	}
 
-	na.AllocatedResources = na.AllocatedResources.Copy()
-	na.Resources = na.Resources.Copy()
-	na.SharedResources = na.SharedResources.Copy()
+	na.AllocatedResources = a.AllocatedResources.Copy()
+	na.Resources = a.Resources.Copy()
+	na.SharedResources = a.SharedResources.Copy()
 
 	if a.TaskResources != nil {
 		tr := make(map[string]*Resources, len(na.TaskResources))
@@ -9385,18 +9406,25 @@ func (a *Allocation) copyImpl(job bool) *Allocation {
 		na.TaskResources = tr
 	}
 
-	na.Metrics = na.Metrics.Copy()
-	na.DeploymentStatus = na.DeploymentStatus.Copy()
+	na.Metrics = a.Metrics.Copy()
+	na.DesiredTransition = a.DesiredTransition.Copy()
 
 	if a.TaskStates != nil {
-		ts := make(map[string]*TaskState, len(na.TaskStates))
-		for task, state := range na.TaskStates {
-			ts[task] = state.Copy()
+		na.TaskStates = make(map[string]*TaskState, len(a.TaskStates))
+		for task, state := range a.TaskStates {
+			na.TaskStates[task] = state.Copy()
 		}
-		na.TaskStates = ts
+	}
+	if a.AllocStates != nil {
+		na.AllocStates = make([]*AllocState, len(a.AllocStates))
+		for i, s := range a.AllocStates {
+			na.AllocStates[i] = s
+		}
 	}
 
+	na.DeploymentStatus = a.DeploymentStatus.Copy()
 	na.RescheduleTracker = a.RescheduleTracker.Copy()
+	na.NetworkStatus = a.NetworkStatus.Copy()
 	na.PreemptedAllocations = helper.CopySliceString(a.PreemptedAllocations)
 	return na
 }

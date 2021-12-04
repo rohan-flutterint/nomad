@@ -799,9 +799,8 @@ func inplaceUpdate(ctx Context, eval *structs.Evaluation, job *structs.Job,
 			resources.Devices = devices
 		}
 
-		// Create a shallow copy
-		newAlloc := new(structs.Allocation)
-		*newAlloc = *update.Alloc
+		// Create a copy
+		newAlloc := update.Alloc.Copy()
 
 		// Update the allocation
 		newAlloc.EvalID = eval.ID
@@ -810,11 +809,7 @@ func inplaceUpdate(ctx Context, eval *structs.Evaluation, job *structs.Job,
 		newAlloc.AllocatedResources = &structs.AllocatedResources{
 			Tasks:          option.TaskResources,
 			TaskLifecycles: option.TaskLifecycles,
-			Shared: structs.AllocatedSharedResources{
-				DiskMB:   int64(update.TaskGroup.EphemeralDisk.SizeMB),
-				Ports:    update.Alloc.AllocatedResources.Shared.Ports,
-				Networks: update.Alloc.AllocatedResources.Shared.Networks.Copy(),
-			},
+			Shared:         update.Alloc.AllocatedResources.Shared.Copy(),
 		}
 		newAlloc.Metrics = ctx.Metrics()
 		ctx.Plan().AppendAlloc(newAlloc, nil)
