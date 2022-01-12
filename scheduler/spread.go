@@ -1,6 +1,8 @@
 package scheduler
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/nomad/nomad/structs"
 )
 
@@ -140,6 +142,9 @@ func (iter *SpreadIterator) Next() *RankedNode {
 				scoreBoost := evenSpreadScoreBoost(pset, option.Node)
 				totalSpreadScore += scoreBoost
 			} else {
+				// DEBUG
+				debugTarget := nValue
+
 				// Get the desired count
 				desiredCount, ok := spreadDetails.desiredCounts[nValue]
 				if !ok {
@@ -151,6 +156,9 @@ func (iter *SpreadIterator) Next() *RankedNode {
 						totalSpreadScore -= 1.0
 						continue
 					}
+
+					// DEBUG
+					debugTarget = implicitTarget
 				}
 
 				// Calculate the relative weight of this specific spread attribute
@@ -162,6 +170,10 @@ func (iter *SpreadIterator) Next() *RankedNode {
 				// more than one spread attribute
 				scoreBoost := ((desiredCount - float64(usedCount)) / desiredCount) * spreadWeight
 				totalSpreadScore += scoreBoost
+
+				fmt.Printf("  target=%s desiredCount=%f usedCount=%d totalSpreadScore=%f\n",
+					debugTarget, desiredCount, usedCount, totalSpreadScore)
+
 			}
 		}
 

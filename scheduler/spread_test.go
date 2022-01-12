@@ -811,3 +811,92 @@ func validateEqualSpread(h *Harness) error {
 	}
 	return fmt.Errorf("expected even distributon of allocs to racks, but got:\n%+v", countSet)
 }
+
+func TestSpread_FullEvalProcess_Implicit(t *testing.T) {
+
+	h := NewHarness(t)
+	dcs := []string{"dc1", "dc2", "dc3"}
+
+	nodesToDcs := map[string]string{}
+	var nodes []*RankedNode
+
+	for i, dc := range dcs {
+		for j := 0; j < 4; j++ {
+			node := mock.Node()
+			node.Datacenter = dc
+			// node.Resources.CPU = 200000
+			// node.Resources.MemoryMB = 200000
+			// node.NodeResources.Cpu.CpuShares = 20000
+			// node.NodeResources.Memory.MemoryMB = 20000
+			if err := h.State.UpsertNode(
+				structs.MsgTypeTestSetup, uint64(100+i), node); err != nil {
+				t.Fatalf("failed to upsert node: %v", err)
+			}
+			nodes = append(nodes, &RankedNode{Node: node})
+			nodesToDcs[node.ID] = node.Datacenter
+		}
+	}
+
+	// Job has spread target of 50% in dc1
+	// Implicitly, this should mean 50% in dc2 and dc3
+	job := mock.Job()
+	job.Datacenters = dcs
+	job.TaskGroups[0].Count = 12
+	job.TaskGroups[0].Spreads = []*structs.Spread{
+		{
+			Weight:    100,
+			Attribute: "${node.datacenter}",
+			SpreadTarget: []*structs.SpreadTarget{
+				{
+					Value:   "dc1",
+					Percent: 50,
+				},
+				// {
+				// 	Value:   "*",
+				// 	Percent: 50,
+				// },
+
+				// {
+				// 	Value:   "dc2",
+				// 	Percent: 25,
+				// },
+				// {
+				// 	Value:   "dc3",
+				// 	Percent: 25,
+				// },
+			},
+		},
+	}
+
+	err := h.State.UpsertJob(structs.MsgTypeTestSetup, h.NextIndex(), job)
+	if err != nil {
+		t.Fatal(err)
+	}
+	eval := &structs.Evaluation{
+		Namespace:   structs.DefaultNamespace,
+		ID:          uuid.Generate(),
+		Priority:    job.Priority,
+		TriggeredBy: structs.EvalTriggerJobRegister,
+		JobID:       job.ID,
+		Status:      structs.EvalStatusPending,
+	}
+	err = h.State.UpsertEvals(structs.MsgTypeTestSetup,
+		h.NextIndex(), []*structs.Evaluation{eval})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = h.Process(NewServiceScheduler, eval)
+	require.NoError(t, err)
+	require.Len(t, h.Plans, 1)
+	plan := h.Plans[0]
+
+	require.False(t, plan.IsNoOp())
+
+	dcCounts := map[string]int{}
+
+	for node, allocs := range plan.NodeAllocation {
+		dcCounts[nodesToDcs[node]] += len(allocs)
+	}
+	require.Equal(t, map[string]int{"dc1": 6, "dc2": 3, "dc3": 3}, dcCounts)
+}
