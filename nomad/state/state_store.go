@@ -1415,7 +1415,7 @@ func (s *StateStore) deleteJobFromPlugins(index uint64, txn Txn, job *structs.Jo
 		plug, ok := plugins[x.pluginID]
 
 		if !ok {
-			plug, err = s.CSIPluginByIDTxn(txn, nil, x.pluginID)
+			plug, err = s.csiPluginByIDTxn(txn, nil, x.pluginID)
 			if err != nil {
 				return fmt.Errorf("error getting plugin: %s, %v", x.pluginID, err)
 			}
@@ -2452,7 +2452,7 @@ func (s *StateStore) csiVolumeDenormalizePluginsTxn(txn Txn, vol *structs.CSIVol
 	if vol == nil {
 		return nil, nil
 	}
-	plug, err := s.CSIPluginByIDTxn(txn, nil, vol.PluginID)
+	plug, err := s.csiPluginByIDTxn(txn, nil, vol.PluginID)
 	if err != nil {
 		return nil, fmt.Errorf("plugin lookup error: %s %v", vol.PluginID, err)
 	}
@@ -2613,15 +2613,15 @@ func (s *StateStore) CSIPluginsByIDPrefix(ws memdb.WatchSet, pluginID string) (m
 // transaction so you should not call it from within another transaction.
 func (s *StateStore) CSIPluginByID(ws memdb.WatchSet, id string) (*structs.CSIPlugin, error) {
 	txn := s.db.ReadTxn()
-	plugin, err := s.CSIPluginByIDTxn(txn, ws, id)
+	plugin, err := s.csiPluginByIDTxn(txn, ws, id)
 	if err != nil {
 		return nil, err
 	}
 	return plugin, nil
 }
 
-// CSIPluginByIDTxn returns a named CSIPlugin
-func (s *StateStore) CSIPluginByIDTxn(txn Txn, ws memdb.WatchSet, id string) (*structs.CSIPlugin, error) {
+// csiPluginByIDTxn returns a named CSIPlugin
+func (s *StateStore) csiPluginByIDTxn(txn Txn, ws memdb.WatchSet, id string) (*structs.CSIPlugin, error) {
 
 	watchCh, obj, err := txn.FirstWatch("csi_plugins", "id_prefix", id)
 	if err != nil {
@@ -2636,13 +2636,16 @@ func (s *StateStore) CSIPluginByIDTxn(txn Txn, ws memdb.WatchSet, id string) (*s
 	return nil, nil
 }
 
-// CSIPluginDenormalize returns a CSIPlugin with allocation details. Always called on a copy of the plugin.
-func (s *StateStore) CSIPluginDenormalize(ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, error) {
+// CSIPluginDenormalizeAllocs returns a CSIPlugin with allocation
+// details. Always called on a copy of the plugin.
+func (s *StateStore) CSIPluginDenormalizeAllocs(ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, error) {
 	txn := s.db.ReadTxn()
-	return s.CSIPluginDenormalizeTxn(txn, ws, plug)
+	return s.csiPluginDenormalizeAllocsTxn(txn, ws, plug)
 }
 
-func (s *StateStore) CSIPluginDenormalizeTxn(txn Txn, ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, error) {
+// csiPluginDenormalizeAllocsTxn implements
+// CSIPluginDenormalizeAllocs, inside a transaction.
+func (s *StateStore) csiPluginDenormalizeAllocsTxn(txn Txn, ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, error) {
 	if plug == nil {
 		return nil, nil
 	}
@@ -2702,7 +2705,7 @@ func (s *StateStore) DeleteCSIPlugin(index uint64, id string) error {
 	txn := s.db.WriteTxn(index)
 	defer txn.Abort()
 
-	plug, err := s.CSIPluginByIDTxn(txn, nil, id)
+	plug, err := s.csiPluginByIDTxn(txn, nil, id)
 	if err != nil {
 		return err
 	}
@@ -2711,7 +2714,7 @@ func (s *StateStore) DeleteCSIPlugin(index uint64, id string) error {
 		return nil
 	}
 
-	plug, err = s.CSIPluginDenormalizeTxn(txn, nil, plug.Copy())
+	plug, err = s.csiPluginDenormalizeAllocsTxn(txn, nil, plug.Copy())
 	if err != nil {
 		return err
 	}
@@ -4791,7 +4794,7 @@ func (s *StateStore) updateJobCSIPlugins(index uint64, job, prev *structs.Job, t
 
 				plugIn, ok := plugIns[t.CSIPluginConfig.ID]
 				if !ok {
-					p, err := s.CSIPluginByIDTxn(txn, nil, t.CSIPluginConfig.ID)
+					p, err := s.csiPluginByIDTxn(txn, nil, t.CSIPluginConfig.ID)
 					if err != nil {
 						return err
 					}
@@ -5079,7 +5082,7 @@ func (s *StateStore) updatePluginWithAlloc(index uint64, alloc *structs.Allocati
 	for _, t := range tg.Tasks {
 		if t.CSIPluginConfig != nil {
 			pluginID := t.CSIPluginConfig.ID
-			plug, err := s.CSIPluginByIDTxn(txn, nil, pluginID)
+			plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
 			if err != nil {
 				return err
 			}
@@ -5116,7 +5119,7 @@ func (s *StateStore) updatePluginWithJobSummary(index uint64, summary *structs.J
 	for _, t := range tg.Tasks {
 		if t.CSIPluginConfig != nil {
 			pluginID := t.CSIPluginConfig.ID
-			plug, err := s.CSIPluginByIDTxn(txn, nil, pluginID)
+			plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
 			if err != nil {
 				return err
 			}

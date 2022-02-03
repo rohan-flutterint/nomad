@@ -1349,7 +1349,7 @@ func (v *CSIPlugin) Get(args *structs.CSIPluginGetRequest, reply *structs.CSIPlu
 			}
 
 			if withAllocs {
-				plug, err = snap.CSIPluginDenormalize(ws, plug.Copy())
+				plug, err = snap.CSIPluginDenormalizeAllocs(ws, plug.Copy())
 				if err != nil {
 					return err
 				}
