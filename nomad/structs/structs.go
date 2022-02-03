@@ -9933,6 +9933,19 @@ func (a *Allocation) LookupTask(name string) *Task {
 	return tg.LookupTask(name)
 }
 
+// LookupCSIPluginIDs returns the IDs of any CSI plugins this
+// allocation implements
+func (a *Allocation) LookupCSIPluginIDs() []string {
+	ids := []string{}
+	tg := a.Job.LookupTaskGroup(a.TaskGroup)
+	for _, t := range tg.Tasks {
+		if t.CSIPluginConfig != nil {
+			ids = append(ids, t.CSIPluginConfig.ID)
+		}
+	}
+	return ids
+}
+
 // Stub returns a list stub for the allocation
 func (a *Allocation) Stub(fields *AllocStubFields) *AllocListStub {
 	s := &AllocListStub{

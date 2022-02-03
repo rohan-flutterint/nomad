@@ -801,14 +801,14 @@ func (s *StateStore) UpsertNode(msgType structs.MessageType, index uint64, node 
 	txn := s.db.WriteTxnMsgT(msgType, index)
 	defer txn.Abort()
 
-	err := upsertNodeTxn(txn, index, node)
+	err := s.upsertNodeTxn(txn, index, node)
 	if err != nil {
 		return nil
 	}
 	return txn.Commit()
 }
 
-func upsertNodeTxn(txn *txn, index uint64, node *structs.Node) error {
+func (s *StateStore) upsertNodeTxn(txn *txn, index uint64, node *structs.Node) error {
 	// Check if the node already exists
 	existing, err := txn.First("nodes", "id", node.ID)
 	if err != nil {
@@ -853,7 +853,7 @@ func upsertNodeTxn(txn *txn, index uint64, node *structs.Node) error {
 	if err := txn.Insert("index", &IndexEntry{"nodes", index}); err != nil {
 		return fmt.Errorf("index update failed: %v", err)
 	}
-	if err := upsertNodeCSIPlugins(txn, node, index); err != nil {
+	if err := s.upsertNodeCSIPlugins(txn, node, index); err != nil {
 		return fmt.Errorf("csi plugin update failed: %v", err)
 	}
 
@@ -865,14 +865,14 @@ func (s *StateStore) DeleteNode(msgType structs.MessageType, index uint64, nodes
 	txn := s.db.WriteTxn(index)
 	defer txn.Abort()
 
-	err := deleteNodeTxn(txn, index, nodes)
+	err := s.deleteNodeTxn(txn, index, nodes)
 	if err != nil {
 		return nil
 	}
 	return txn.Commit()
 }
 
-func deleteNodeTxn(txn *txn, index uint64, nodes []string) error {
+func (s *StateStore) deleteNodeTxn(txn *txn, index uint64, nodes []string) error {
 	if len(nodes) == 0 {
 		return fmt.Errorf("node ids missing")
 	}
@@ -892,7 +892,7 @@ func deleteNodeTxn(txn *txn, index uint64, nodes []string) error {
 		}
 
 		node := existing.(*structs.Node)
-		if err := deleteNodeCSIPlugins(txn, node, index); err != nil {
+		if err := s.deleteNodeCSIPlugins(txn, node, index); err != nil {
 			return fmt.Errorf("csi plugin delete failed: %v", err)
 		}
 	}
@@ -1179,10 +1179,12 @@ func appendNodeEvents(index uint64, node *structs.Node, events []*structs.NodeEv
 }
 
 // upsertNodeCSIPlugins indexes csi plugins for volume retrieval, with health. It's called
-// on upsertNodeEvents, so that event driven health changes are updated
-func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
+// on UpsertNode, so that event driven health changes are updated
+// TODO: doc here said we should be getting node events too?
+func (s *StateStore) upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 
-	loop := func(info *structs.CSIInfo) error {
+	// upsertFn handles each plugin update
+	upsertFn := func(info *structs.CSIInfo) error {
 		raw, err := txn.First("csi_plugins", "id", info.PluginID)
 		if err != nil {
 			return fmt.Errorf("csi_plugin lookup error: %s %v", info.PluginID, err)
@@ -1205,9 +1207,12 @@ func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 		// this data will not be configured, it's only available to the fingerprint
 		// system
 		plug.Provider = info.Provider
+
+		// TODO: this means ProviderVersions end up clobbering each other, depending
+		// on the order in which we get UpsertNode calls from clients
 		plug.Version = info.ProviderVersion
 
-		err = plug.AddPlugin(node.ID, info)
+		err = plug.AddPluginInstance(node.ID, info)
 		if err != nil {
 			return err
 		}
@@ -1226,7 +1231,7 @@ func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 	inUseNode := map[string]struct{}{}
 
 	for _, info := range node.CSIControllerPlugins {
-		err := loop(info)
+		err := upsertFn(info)
 		if err != nil {
 			return err
 		}
@@ -1234,7 +1239,7 @@ func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 	}
 
 	for _, info := range node.CSINodePlugins {
-		err := loop(info)
+		err := upsertFn(info)
 		if err != nil {
 			return err
 		}
@@ -1281,7 +1286,7 @@ func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 		// don't delete a plugin when registering a node plugin but
 		// no controller
 		if hadDelete {
-			err = updateOrGCPlugin(index, txn, plug)
+			err = s.upsertOrDeleteCSIPlugin(index, txn, plug)
 			if err != nil {
 				return err
 			}
@@ -1296,7 +1301,7 @@ func upsertNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 }
 
 // deleteNodeCSIPlugins cleans up CSIInfo node health status, called in DeleteNode
-func deleteNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
+func (s *StateStore) deleteNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 	if len(node.CSIControllerPlugins) == 0 && len(node.CSINodePlugins) == 0 {
 		return nil
 	}
@@ -1325,7 +1330,7 @@ func deleteNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 		if err != nil {
 			return err
 		}
-		err = updateOrGCPlugin(index, txn, plug)
+		err = s.upsertOrDeleteCSIPlugin(index, txn, plug)
 		if err != nil {
 			return err
 		}
@@ -1338,10 +1343,13 @@ func deleteNodeCSIPlugins(txn *txn, node *structs.Node, index uint64) error {
 	return nil
 }
 
-// updateOrGCPlugin updates a plugin but will delete it if the plugin is empty
-func updateOrGCPlugin(index uint64, txn Txn, plug *structs.CSIPlugin) error {
+// upsertOrDeleteCSIPlugin updates a plugin but will delete it if the plugin is empty
+func (s *StateStore) upsertOrDeleteCSIPlugin(index uint64, txn Txn, plug *structs.CSIPlugin) error {
+	plug, _, err := s.csiPluginDenormalizeAllocCountsTxn(txn, nil, plug)
+	if err != nil {
+		return err
+	}
 	plug.ModifyIndex = index
-
 	if plug.IsEmpty() {
 		err := txn.Delete("csi_plugins", plug)
 		if err != nil {
@@ -1360,6 +1368,19 @@ func updateOrGCPlugin(index uint64, txn Txn, plug *structs.CSIPlugin) error {
 // running, possibly deleting the plugin if it's no longer in use. It's called in DeleteJobTxn
 func (s *StateStore) deleteJobFromPlugins(index uint64, txn Txn, job *structs.Job) error {
 	ws := memdb.NewWatchSet()
+
+	pluginsForJob := map[string][]*structs.Allocation{} // plugin ID -> allocs
+	for _, tg := range job.TaskGroups {
+		for _, task := range tg.Tasks {
+			if task.CSIPluginConfig != nil {
+				pluginsForJob[task.CSIPluginConfig.ID] = []*structs.Allocation{}
+			}
+		}
+	}
+	if len(pluginsForJob) == 0 {
+		return nil // not a CSI plugin!
+	}
+
 	summary, err := s.JobSummaryByID(ws, job.Namespace, job.ID)
 	if err != nil {
 		return fmt.Errorf("error getting job summary: %v", err)
@@ -1375,70 +1396,43 @@ func (s *StateStore) deleteJobFromPlugins(index uint64, txn Txn, job *structs.Jo
 		alloc    *structs.Allocation
 	}
 
-	plugAllocs := []*pair{}
-	found := map[string]struct{}{}
-
-	// Find plugins for allocs that belong to this job
+	// Not all allocs of a plugin job will be a plugin and a job can
+	// have multiple plugins (ex. in different task groups). Map these
+	// by plugin ID
 	for _, a := range allocs {
 		tg := a.Job.LookupTaskGroup(a.TaskGroup)
-		found[tg.Name] = struct{}{}
 		for _, t := range tg.Tasks {
 			if t.CSIPluginConfig == nil {
 				continue
 			}
-			plugAllocs = append(plugAllocs, &pair{
-				pluginID: t.CSIPluginConfig.ID,
-				alloc:    a,
-			})
+			pluginsForJob[t.CSIPluginConfig.ID] = append(pluginsForJob[t.CSIPluginConfig.ID], a)
 		}
 	}
 
-	// Find any plugins that do not yet have allocs for this job
-	for _, tg := range job.TaskGroups {
-		if _, ok := found[tg.Name]; ok {
-			continue
-		}
+	for pluginID, allocs := range pluginsForJob {
 
-		for _, t := range tg.Tasks {
-			if t.CSIPluginConfig == nil {
-				continue
-			}
-			plugAllocs = append(plugAllocs, &pair{
-				pluginID: t.CSIPluginConfig.ID,
-			})
-		}
-	}
-
-	plugins := map[string]*structs.CSIPlugin{}
-
-	for _, x := range plugAllocs {
-		plug, ok := plugins[x.pluginID]
-
-		if !ok {
-			plug, err = s.csiPluginByIDTxn(txn, nil, x.pluginID)
-			if err != nil {
-				return fmt.Errorf("error getting plugin: %s, %v", x.pluginID, err)
-			}
-			if plug == nil {
-				return fmt.Errorf("plugin missing: %s %v", x.pluginID, err)
-			}
-			// only copy once, so we update the same plugin on each alloc
-			plugins[x.pluginID] = plug.Copy()
-			plug = plugins[x.pluginID]
-		}
-
-		if x.alloc == nil {
-			continue
-		}
-		err := plug.DeleteAlloc(x.alloc.ID, x.alloc.NodeID)
+		plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
 		if err != nil {
-			return err
+			return fmt.Errorf("error getting plugin: %s, %v", pluginID, err)
 		}
-	}
+		if plug == nil {
+			return fmt.Errorf("plugin missing: %s %v", pluginID, err)
+		}
+		plug = plug.Copy()
 
-	for _, plug := range plugins {
+		for _, alloc := range allocs {
+			err := plug.DeleteAlloc(alloc.ID, alloc.NodeID)
+			if err != nil {
+				return err
+			}
+		}
 		plug.DeleteJob(job, summary)
-		err = updateOrGCPlugin(index, txn, plug)
+
+		plug, err = s.csiPluginDenormalizeAllocsTxn(txn, nil, plug)
+		if err != nil {
+			return fmt.Errorf("error getting allocs for plugin: %s, %v", pluginID, err)
+		}
+		err = s.upsertOrDeleteCSIPlugin(index, txn, plug)
 		if err != nil {
 			return err
 		}
@@ -2643,34 +2637,66 @@ func (s *StateStore) CSIPluginDenormalizeAllocs(ws memdb.WatchSet, plug *structs
 	return s.csiPluginDenormalizeAllocsTxn(txn, ws, plug)
 }
 
-// csiPluginDenormalizeAllocsTxn implements
-// CSIPluginDenormalizeAllocs, inside a transaction.
 func (s *StateStore) csiPluginDenormalizeAllocsTxn(txn Txn, ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, error) {
-	if plug == nil {
-		return nil, nil
+	plug, allocs, err := s.csiPluginDenormalizeAllocCountsTxn(txn, ws, plug)
+	if err != nil {
+		return nil, err
 	}
-
-	// Get the unique list of allocation ids
-	ids := map[string]struct{}{}
-	for _, info := range plug.Controllers {
-		ids[info.AllocID] = struct{}{}
-	}
-	for _, info := range plug.Nodes {
-		ids[info.AllocID] = struct{}{}
-	}
-
-	for id := range ids {
-		alloc, err := s.allocByIDImpl(txn, ws, id)
-		if err != nil {
-			return nil, err
-		}
-		if alloc == nil {
-			continue
-		}
+	for _, alloc := range allocs {
 		plug.Allocations = append(plug.Allocations, alloc.Stub(nil))
 	}
-
 	return plug, nil
+}
+
+func (s *StateStore) csiPluginDenormalizeAllocCountsTxn(txn Txn, ws memdb.WatchSet, plug *structs.CSIPlugin) (*structs.CSIPlugin, []*structs.Allocation, error) {
+	if plug == nil {
+		return nil, nil, nil
+	}
+
+	// TODO: do we need to include queued allocations from the job
+	// summary in the Expected count if we have DesiredStatus?
+	// (compare to csi.UpdateExpectedWithJob)
+
+	// reset every time so we don't have drift
+	plug.NodesExpected = 0
+	plug.NodesHealthy = 0
+
+	allocSet := map[string]*structs.Allocation{} // need to dedupe allocs
+
+	// TODO: can we refactor this to have one function that we call
+	// twice for controllers/nodes, as we did for claims with
+	// readers/writers?
+	for _, info := range plug.Controllers {
+		alloc, err := s.allocByIDImpl(txn, ws, info.AllocID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if alloc != nil {
+			if !alloc.TerminalStatus() && info.Healthy {
+				plug.ControllersHealthy++
+			}
+		}
+		allocSet[info.AllocID] = alloc
+	}
+
+	for _, info := range plug.Nodes {
+		alloc, err := s.allocByIDImpl(txn, ws, info.AllocID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if alloc != nil {
+			if !alloc.TerminalStatus() && info.Healthy {
+				plug.NodesHealthy++
+			}
+		}
+		allocSet[info.AllocID] = alloc
+	}
+
+	allocs := []*structs.Allocation{}
+	for _, alloc := range allocSet {
+		allocs = append(allocs, alloc)
+	}
+	return plug, allocs, nil
 }
 
 // UpsertCSIPlugin writes the plugin to the state store. Note: there
@@ -4785,7 +4811,7 @@ func (s *StateStore) updateJobScalingPolicies(index uint64, job *structs.Job, tx
 func (s *StateStore) updateJobCSIPlugins(index uint64, job, prev *structs.Job, txn *txn) error {
 	plugIns := make(map[string]*structs.CSIPlugin)
 
-	loop := func(job *structs.Job, delete bool) error {
+	upsertFn := func(job *structs.Job, delete bool) error {
 		for _, tg := range job.TaskGroups {
 			for _, t := range tg.Tasks {
 				if t.CSIPluginConfig == nil {
@@ -4819,13 +4845,13 @@ func (s *StateStore) updateJobCSIPlugins(index uint64, job, prev *structs.Job, t
 	}
 
 	if prev != nil {
-		err := loop(prev, true)
+		err := upsertFn(prev, true)
 		if err != nil {
 			return err
 		}
 	}
 
-	err := loop(job, false)
+	err := upsertFn(job, false)
 	if err != nil {
 		return err
 	}
@@ -5078,28 +5104,25 @@ func (s *StateStore) updatePluginWithAlloc(index uint64, alloc *structs.Allocati
 		return nil
 	}
 
-	tg := alloc.Job.LookupTaskGroup(alloc.TaskGroup)
-	for _, t := range tg.Tasks {
-		if t.CSIPluginConfig != nil {
-			pluginID := t.CSIPluginConfig.ID
-			plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
-			if err != nil {
-				return err
-			}
-			if plug == nil {
-				// plugin may not have been created because it never
-				// became healthy, just move on
-				return nil
-			}
-			plug = plug.Copy()
-			err = plug.DeleteAlloc(alloc.ID, alloc.NodeID)
-			if err != nil {
-				return err
-			}
-			err = updateOrGCPlugin(index, txn, plug)
-			if err != nil {
-				return err
-			}
+	pluginIDs := alloc.LookupCSIPluginIDs()
+	for _, pluginID := range pluginIDs {
+		plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
+		if err != nil {
+			return err
+		}
+		if plug == nil {
+			// plugin may not have been created because it never
+			// became healthy, just move on
+			return nil
+		}
+		plug = plug.Copy()
+		err = plug.DeleteAlloc(alloc.ID, alloc.NodeID)
+		if err != nil {
+			return err
+		}
+		err = s.upsertOrDeleteCSIPlugin(index, txn, plug)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -5108,32 +5131,25 @@ func (s *StateStore) updatePluginWithAlloc(index uint64, alloc *structs.Allocati
 
 // updatePluginWithJobSummary updates the CSI plugins for a job when the
 // job summary is updated by an alloc
-func (s *StateStore) updatePluginWithJobSummary(index uint64, summary *structs.JobSummary, alloc *structs.Allocation,
-	txn *txn) error {
+func (s *StateStore) updatePluginWithJobSummary(index uint64,
+	summary *structs.JobSummary, alloc *structs.Allocation, txn *txn) error {
 
-	tg := alloc.Job.LookupTaskGroup(alloc.TaskGroup)
-	if tg == nil {
-		return nil
-	}
+	pluginIDs := alloc.LookupCSIPluginIDs()
+	for _, pluginID := range pluginIDs {
+		plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
+		if err != nil {
+			return err
+		}
+		if plug == nil {
+			plug = structs.NewCSIPlugin(pluginID, index)
+		} else {
+			plug = plug.Copy()
+		}
 
-	for _, t := range tg.Tasks {
-		if t.CSIPluginConfig != nil {
-			pluginID := t.CSIPluginConfig.ID
-			plug, err := s.csiPluginByIDTxn(txn, nil, pluginID)
-			if err != nil {
-				return err
-			}
-			if plug == nil {
-				plug = structs.NewCSIPlugin(pluginID, index)
-			} else {
-				plug = plug.Copy()
-			}
-
-			plug.UpdateExpectedWithJob(alloc.Job, summary, alloc.ServerTerminalStatus())
-			err = updateOrGCPlugin(index, txn, plug)
-			if err != nil {
-				return err
-			}
+		plug.UpdateExpectedWithJob(alloc.Job, summary, alloc.ServerTerminalStatus())
+		err = s.upsertOrDeleteCSIPlugin(index, txn, plug)
+		if err != nil {
+			return err
 		}
 	}
 

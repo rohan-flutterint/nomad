@@ -1297,6 +1297,10 @@ func (v *CSIPlugin) List(args *structs.CSIPluginListRequest, reply *structs.CSIP
 				}
 
 				plug := raw.(*structs.CSIPlugin)
+				plug, err = state.CSIPluginDenormalizeAllocs(ws, plug.Copy())
+				if err != nil {
+					return err
+				}
 				ps = append(ps, plug.Stub())
 			}
 
@@ -1321,7 +1325,7 @@ func (v *CSIPlugin) Get(args *structs.CSIPluginGetRequest, reply *structs.CSIPlu
 		return structs.ErrPermissionDenied
 	}
 
-	withAllocs := aclObj == nil ||
+	hasAllocPermissions := aclObj == nil ||
 		aclObj.AllowNsOp(args.RequestNamespace(), acl.NamespaceCapabilityReadJob)
 
 	defer metrics.MeasureSince([]string{"nomad", "plugin", "get"}, time.Now())
@@ -1343,27 +1347,25 @@ func (v *CSIPlugin) Get(args *structs.CSIPluginGetRequest, reply *structs.CSIPlu
 			if err != nil {
 				return err
 			}
-
 			if plug == nil {
 				return nil
 			}
 
-			if withAllocs {
-				plug, err = snap.CSIPluginDenormalizeAllocs(ws, plug.Copy())
-				if err != nil {
-					return err
-				}
-
-				// Filter the allocation stubs by our namespace. withAllocs
-				// means we're allowed
-				var as []*structs.AllocListStub
+			// always denormalize so that we get the right counts, but
+			// then only return the allocs if we have permissions
+			plug, err = snap.CSIPluginDenormalizeAllocs(ws, plug.Copy())
+			if err != nil {
+				return err
+			}
+			var as []*structs.AllocListStub
+			if hasAllocPermissions {
 				for _, a := range plug.Allocations {
 					if a.Namespace == args.RequestNamespace() {
 						as = append(as, a)
 					}
 				}
-				plug.Allocations = as
 			}
+			plug.Allocations = as
 
 			reply.Plugin = plug
 			return v.srv.replySetIndex(csiPluginTable, &reply.QueryMeta)

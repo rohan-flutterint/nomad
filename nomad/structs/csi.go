@@ -1111,9 +1111,15 @@ func (p *CSIPlugin) HasNodeCapability(cap CSINodeCapability) bool {
 	return false
 }
 
-// AddPlugin adds a single plugin running on the node. Called from state.NodeUpdate in a
-// transaction
-func (p *CSIPlugin) AddPlugin(nodeID string, info *CSIInfo) error {
+// AddPluginInstance adds a single plugin instance (allocation)
+// running on the node. Called from the state store when we UpsertNode
+// or UpsertNodeEvents, which wraps this in a txn. Callers that need
+// the counts to be correct should immediately call
+// state.CSIPluginDenormalize on the plugin
+func (p *CSIPlugin) AddPluginInstance(nodeID string, info *CSIInfo) error {
+
+	// TODO: remove count updates
+
 	if info.ControllerInfo != nil {
 		p.ControllerRequired = info.RequiresControllerPlugin
 		prev, ok := p.Controllers[nodeID]
@@ -1165,9 +1171,15 @@ func (p *CSIPlugin) DeleteNode(nodeID string) error {
 	return p.DeleteNodeForType(nodeID, CSIPluginTypeMonolith)
 }
 
-// DeleteNodeForType deletes a client node from the list of controllers or node instance of
-// a plugin. Called from deleteJobFromPlugin during job deregistration, in a transaction
+// DeleteNodeForType deletes a client node from the list of
+// controllers or node instance of a plugin. Called from
+// deleteJobFromPlugin during job deregistration, in a transaction.
+// Callers should immediately call state.CSIPluginDenormalize if they
+// need accurate counts.
 func (p *CSIPlugin) DeleteNodeForType(nodeID string, pluginType CSIPluginType) error {
+
+	// TODO: remove count updates
+
 	switch pluginType {
 	case CSIPluginTypeController:
 		if prev, ok := p.Controllers[nodeID]; ok {
@@ -1212,6 +1224,9 @@ func (p *CSIPlugin) DeleteNodeForType(nodeID string, pluginType CSIPluginType) e
 
 // DeleteAlloc removes the fingerprint info for the allocation
 func (p *CSIPlugin) DeleteAlloc(allocID, nodeID string) error {
+
+	// TODO: remove count updates
+
 	prev, ok := p.Controllers[nodeID]
 	if ok {
 		if prev == nil {
@@ -1255,6 +1270,8 @@ func (p *CSIPlugin) DeleteJob(job *Job, summary *JobSummary) {
 // we use the summary to add non-allocation expected counts
 func (p *CSIPlugin) UpdateExpectedWithJob(job *Job, summary *JobSummary, terminal bool) {
 	var count int
+
+	// TODO: remove count updates
 
 	for _, tg := range job.TaskGroups {
 		if job.Type == JobTypeSystem {
