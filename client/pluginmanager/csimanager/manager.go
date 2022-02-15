@@ -1,6 +1,7 @@
 package csimanager
 
 import (
+	"container/list"
 	"context"
 	"fmt"
 	"sync"
@@ -42,7 +43,7 @@ func New(config *Config) Manager {
 		logger:    config.Logger,
 		eventer:   config.TriggerNodeEvent,
 		registry:  config.DynamicRegistry,
-		instances: make(map[string]map[string]*instanceManager),
+		instances: make(map[string]map[string]*list.List),
 
 		updateNodeCSIInfoFunc: config.UpdateNodeCSIInfoFunc,
 		pluginResyncPeriod:    config.PluginResyncPeriod,
@@ -55,8 +56,8 @@ func New(config *Config) Manager {
 
 type csiManager struct {
 	// instances should only be accessed from the run() goroutine and the shutdown
-	// fn. It is a map of PluginType : [PluginName : instanceManager]
-	instances map[string]map[string]*instanceManager
+	// fn. It is a map of PluginType : [PluginName : *List (of *instanceManager)]
+	instances map[string]map[string]*list.List
 
 	registry           dynamicplugins.Registry
 	logger             hclog.Logger
@@ -75,16 +76,18 @@ func (c *csiManager) PluginManager() pluginmanager.PluginManager {
 }
 
 func (c *csiManager) MounterForPlugin(ctx context.Context, pluginID string) (VolumeMounter, error) {
-	nodePlugins, hasAnyNodePlugins := c.instances["csi-node"]
-	if !hasAnyNodePlugins {
-		return nil, fmt.Errorf("no storage node plugins found")
-	}
 
-	mgr, hasPlugin := nodePlugins[pluginID]
-	if !hasPlugin {
-		return nil, fmt.Errorf("plugin %s for type csi-node not found", pluginID)
-	}
+	instancesByType := c.instancesForType("csi-node")
+	instances, ok := instancesByType[pluginID]
 
+	if !ok {
+		return nil, fmt.Errorf("TODO")
+	}
+	e := instances.Front()
+	if e == nil {
+		return nil, fmt.Errorf("TODO")
+	}
+	mgr := e.Value.(*instanceManager)
 	return mgr.VolumeMounter(ctx)
 }
 
@@ -132,10 +135,13 @@ func (c *csiManager) resyncPluginsFromRegistry(ptype string) {
 
 	// For every instance manager, if we did not find it during the plugin
 	// iterator, shut it down and remove it from the table.
-	instances := c.instancesForType(ptype)
-	for name, mgr := range instances {
+	instancesByType := c.instancesForType(ptype)
+	for name, instances := range instancesByType {
 		if _, ok := seen[name]; !ok {
-			c.ensureNoInstance(mgr.info)
+			for e := instances.Front(); e != nil; e = e.Next() {
+				mgr := e.Value.(*instanceManager)
+				c.ensureNoInstance(mgr.info)
+			}
 		}
 	}
 }
@@ -166,13 +172,32 @@ func (c *csiManager) handlePluginEvent(event *dynamicplugins.PluginUpdateEvent) 
 func (c *csiManager) ensureInstance(plugin *dynamicplugins.PluginInfo) {
 	name := plugin.Name
 	ptype := plugin.Type
-	instances := c.instancesForType(ptype)
-	if _, ok := instances[name]; !ok {
-		c.logger.Debug("detected new CSI plugin", "name", name, "type", ptype)
-		mgr := newInstanceManager(c.logger, c.eventer, c.updateNodeCSIInfoFunc, plugin)
-		instances[name] = mgr
-		mgr.run()
+	instancesByType := c.instancesForType(ptype)
+	instances, ok := instancesByType[name]
+	if !ok {
+		instances = list.New()
 	}
+
+	for e := instances.Front(); e != nil; e = e.Next() {
+		instance := e.Value.(*instanceManager)
+		if instance.allocID == plugin.AllocID {
+			var mgr *instanceManager
+			if instance.needsReplacement(plugin) {
+				c.logger.Debug("detected new CSI plugin", "name", name, "type", ptype)
+				mgr = newInstanceManager(c.logger, c.eventer, c.updateNodeCSIInfoFunc, plugin)
+				mgr.run()
+				e.Value = mgr
+			}
+			instances.MoveToFront(e)
+			instancesByType[name] = instances
+			return
+		}
+	}
+
+	c.logger.Debug("detected new CSI plugin", "name", name, "type", ptype)
+	mgr := newInstanceManager(c.logger, c.eventer, c.updateNodeCSIInfoFunc, plugin)
+	mgr.run()
+	instances.PushFront(mgr)
 }
 
 // Shut down the instance manager for a plugin and remove it from
@@ -180,20 +205,29 @@ func (c *csiManager) ensureInstance(plugin *dynamicplugins.PluginInfo) {
 func (c *csiManager) ensureNoInstance(plugin *dynamicplugins.PluginInfo) {
 	name := plugin.Name
 	ptype := plugin.Type
-	instances := c.instancesForType(ptype)
-	if mgr, ok := instances[name]; ok {
-		c.logger.Debug("shutting down CSI plugin", "name", name, "type", ptype)
-		mgr.shutdown()
-		delete(instances, name)
+
+	instancesByType := c.instancesForType(ptype)
+	instances, ok := instancesByType[name]
+	if !ok {
+		return
+	}
+
+	for e := instances.Front(); e != nil; e = e.Next() {
+		instance := e.Value.(*instanceManager)
+		if instance.allocID == plugin.AllocID {
+			c.logger.Debug("shutting down CSI plugin", "name", name, "type", ptype)
+			instance.shutdown()
+			instances.Remove(e)
+		}
 	}
 }
 
 // Get the instance managers table for a specific plugin type,
 // ensuring it's been initialized if it doesn't exist.
-func (c *csiManager) instancesForType(ptype string) map[string]*instanceManager {
+func (c *csiManager) instancesForType(ptype string) map[string]*list.List {
 	pluginMap, ok := c.instances[ptype]
 	if !ok {
-		pluginMap = make(map[string]*instanceManager)
+		pluginMap = make(map[string]*list.List)
 		c.instances[ptype] = pluginMap
 	}
 	return pluginMap
@@ -213,12 +247,15 @@ func (c *csiManager) Shutdown() {
 	// Shutdown all the instance managers in parallel
 	var wg sync.WaitGroup
 	for _, pluginMap := range c.instances {
-		for _, mgr := range pluginMap {
-			wg.Add(1)
-			go func(mgr *instanceManager) {
-				mgr.shutdown()
-				wg.Done()
-			}(mgr)
+		for _, instances := range pluginMap {
+			for e := instances.Front(); e != nil; e = e.Next() {
+				mgr := e.Value.(*instanceManager)
+				wg.Add(1)
+				go func(mgr *instanceManager) {
+					mgr.shutdown()
+					wg.Done()
+				}(mgr)
+			}
 		}
 	}
 	wg.Wait()

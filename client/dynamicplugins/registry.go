@@ -184,6 +184,7 @@ func (d *dynamicRegistry) RegisterPlugin(info *PluginInfo) error {
 		d.plugins[info.Type] = pmap
 	}
 
+	// note: registering a new plugin overwrites previous versions!
 	pmap[info.Name] = info
 
 	broadcaster := d.broadcasterForPluginType(info.Type)

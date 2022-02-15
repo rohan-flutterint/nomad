@@ -72,6 +72,19 @@ func newInstanceManager(logger hclog.Logger, eventer TriggerNodeEvent, updater U
 	}
 }
 
+// needsReplacement assumes that any configuration change requires a
+// replacement, so that we can switch to using newer versions of a
+// plugin's instanceManager
+func (i *instanceManager) needsReplacement(p *dynamicplugins.PluginInfo) bool {
+	if i.mountPoint != p.Options["MountPoint"] ||
+		i.containerMountPoint != p.Options["ContainerMountPoint"] ||
+		i.client == nil ||
+		i.fp.client == nil {
+		return true
+	}
+	return false
+}
+
 func (i *instanceManager) run() {
 	c := csi.NewClient(i.info.ConnectionInfo.SocketPath, i.logger)
 	i.client = c
