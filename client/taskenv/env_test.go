@@ -227,7 +227,6 @@ func TestEnvironment_AsList(t *testing.T) {
 }
 
 func TestEnvironment_AllValues(t *testing.T) {
-	t.Parallel()
 
 	n := mock.Node()
 	n.Meta = map[string]string{
@@ -704,7 +703,6 @@ func TestEnvironment_InterpolateEmptyOptionalMeta(t *testing.T) {
 // TestEnvironment_Upsteams asserts that group.service.upstreams entries are
 // added to the environment.
 func TestEnvironment_Upstreams(t *testing.T) {
-	t.Parallel()
 
 	// Add some upstreams to the mock alloc
 	a := mock.Alloc()

@@ -47,7 +47,6 @@ func newConsulFingerPrint(t *testing.T) *ConsulFingerprint {
 }
 
 func TestConsulFingerprint_server(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -83,7 +82,6 @@ func TestConsulFingerprint_server(t *testing.T) {
 }
 
 func TestConsulFingerprint_version(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -119,7 +117,6 @@ func TestConsulFingerprint_version(t *testing.T) {
 }
 
 func TestConsulFingerprint_sku(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -171,7 +168,6 @@ func TestConsulFingerprint_sku(t *testing.T) {
 }
 
 func TestConsulFingerprint_revision(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -199,7 +195,6 @@ func TestConsulFingerprint_revision(t *testing.T) {
 }
 
 func TestConsulFingerprint_dc(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -227,7 +222,6 @@ func TestConsulFingerprint_dc(t *testing.T) {
 }
 
 func TestConsulFingerprint_segment(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -262,7 +256,6 @@ func TestConsulFingerprint_segment(t *testing.T) {
 }
 
 func TestConsulFingerprint_connect(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -291,7 +284,6 @@ func TestConsulFingerprint_connect(t *testing.T) {
 }
 
 func TestConsulFingerprint_grpc(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 
@@ -321,7 +313,6 @@ func TestConsulFingerprint_grpc(t *testing.T) {
 }
 
 func TestConsulFingerprint_namespaces(t *testing.T) {
-	t.Parallel()
 
 	fp := newConsulFingerPrint(t)
 

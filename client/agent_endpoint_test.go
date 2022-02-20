@@ -24,7 +24,7 @@ import (
 )
 
 func TestMonitor_Monitor(t *testing.T) {
-	t.Parallel()
+
 	require := require.New(t)
 
 	// start server and client
@@ -105,7 +105,7 @@ OUTER:
 }
 
 func TestMonitor_Monitor_ACL(t *testing.T) {
-	t.Parallel()
+
 	require := require.New(t)
 
 	// start server
@@ -217,7 +217,7 @@ func TestMonitor_Monitor_ACL(t *testing.T) {
 
 // Test that by default with no acl, endpoint is disabled
 func TestAgentProfile_DefaultDisabled(t *testing.T) {
-	t.Parallel()
+
 	require := require.New(t)
 
 	// start server and client
@@ -243,7 +243,7 @@ func TestAgentProfile_DefaultDisabled(t *testing.T) {
 }
 
 func TestAgentProfile(t *testing.T) {
-	t.Parallel()
+
 	require := require.New(t)
 
 	// start server and client
@@ -290,7 +290,7 @@ func TestAgentProfile(t *testing.T) {
 }
 
 func TestAgentProfile_ACL(t *testing.T) {
-	t.Parallel()
+
 	require := require.New(t)
 
 	// start server
@@ -355,7 +355,6 @@ func TestAgentProfile_ACL(t *testing.T) {
 }
 
 func TestAgentHost(t *testing.T) {
-	t.Parallel()
 
 	// start server and client
 	s1, cleanup := nomad.TestServer(t, nil)
@@ -380,7 +379,6 @@ func TestAgentHost(t *testing.T) {
 }
 
 func TestAgentHost_ACL(t *testing.T) {
-	t.Parallel()
 
 	s, root, cleanupS := nomad.TestACLServer(t, nil)
 	defer cleanupS()

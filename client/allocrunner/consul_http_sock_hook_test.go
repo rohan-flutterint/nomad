@@ -14,7 +14,6 @@ import (
 )
 
 func TestConsulSocketHook_PrerunPostrun_Ok(t *testing.T) {
-	t.Parallel()
 
 	fakeConsul, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -89,7 +88,6 @@ func TestConsulSocketHook_PrerunPostrun_Ok(t *testing.T) {
 }
 
 func TestConsulHTTPSocketHook_Prerun_Error(t *testing.T) {
-	t.Parallel()
 
 	logger := testlog.HCLogger(t)
 
