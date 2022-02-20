@@ -1,0 +1,226 @@
+name: Run CI Tests
+on:
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.changelog/*'
+      - '.tours/*'
+      - 'contributing/*'
+      - 'demo/*'
+      - 'pkg/*'
+      - 'scripts/*'
+      - 'terraform/*'
+      - 'ui/*'
+      - 'website/*'
+  push:
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - '.changelog/*'
+      - '.tours/*'
+      - 'contributing/*'
+      - 'demo/*'
+      - 'pkg/*'
+      - 'scripts/*'
+      - 'terraform/*'
+      - 'ui/*'
+      - 'website/*'
+env:
+  GO_VERSION: 1.17.7
+  NOMAD_SLOW_TEST: 0 # set to 1
+  GOBIN: /usr/local/bin
+  GOTESTARCH: amd64
+  CONSUL_VERSION: 1.11.3
+  VAULT_VERSION: 1.9.3
+  GOMAXPROCS: 1 # :(
+jobs:
+  checks:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # needs tags for checkproto
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+      - name: Run make check
+        run: |
+          make bootstrap
+          make check
+  compile:
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-11, windows-2019]
+    runs-on: ${{matrix.os}}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+      - name: Run make dev
+        env:
+          GOBIN: ${{env.GOROOT}}/bin # windows kludge
+        run: |
+          make bootstrap
+          make dev
+  tests-api:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -api
+      - name: Run API tests
+        env:
+          GOTEST_MOD: api
+        run: |
+          make bootstrap
+          make generate-all
+          make test-nomad-module
+  tests-core:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -core
+      - name: Run Core tests
+        env:
+          GOTEST_PKGS: ./nomad/...
+        run: |
+          make bootstrap
+          make generate-all
+          hc-install vault ${{env.VAULT_VERSION}}
+          hc-install consul ${{env.CONSUL_VERSION}}
+          make test-nomad
+  tests-client:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -client
+      - name: Run Client tests
+        env:
+          GOTEST_PKGS: ./client/...
+        run: |
+          make bootstrap
+          make generate-all
+          hc-install vault ${{env.VAULT_VERSION}}
+          hc-install consul ${{env.CONSUL_VERSION}}
+          sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
+          sudo -E env "PATH=$PATH" make test-nomad
+  tests-docker:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -docker
+      - name: Run Docker tests
+        env:
+          GOTEST_PKGS: ./drivers/docker
+        run: |
+          make bootstrap
+          make generate-all
+          hc-install vault ${{env.VAULT_VERSION}}
+          hc-install consul ${{env.CONSUL_VERSION}}          
+          sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
+          sudo -E env "PATH=$PATH" make test-nomad
+  tests-exec:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -exec
+      - name: Run Exec tests
+        env:
+          GOTEST_PKGS: ./drivers/exec
+        run: |
+          make bootstrap
+          make generate-all
+          sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
+          sudo -E env "PATH=$PATH" make test-nomad
+  tests-exec-shared:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -drivers-shared
+      - name: Run Shared Executor tests
+        env:
+          GOTEST_PKGS: ./drivers/shared/executor
+        run: |
+          make bootstrap
+          make generate-all
+          sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
+          sudo -E env "PATH=$PATH" make test-nomad
+  tests-fingerprint-32bit:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -fingerprint-32bit
+      - name: Run Fingerprint-32bit tests
+        env:
+          GOTEST_PKGS: ./client/fingerprint
+          GOARCH: "386"
+        run: |
+          make generate-all
+          make test-nomad
+  tests-other:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -other
+      - name: Run Other tests
+        env:
+          GOTEST_PKGS_EXCLUDE: "./api|./client|./drivers/docker|./drivers/exec|./drivers/shared/executor|./nomad|./e2e"
+        run: |
+          make bootstrap
+          make generate-all
+          hc-install vault ${{env.VAULT_VERSION}}
+          hc-install consul ${{env.CONSUL_VERSION}}
+          sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
+          sudo -E env "PATH=$PATH" make test-nomad
+  tests-e2e-helpers:
+    runs-on: ubuntu-20.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v2
+      - uses: magnetikonline/action-golang-cache@v1
+        with:
+          go-version: ${{env.GO_VERSION}}
+          cache-key-suffix: -e2ehelpers
+      - name: Run E2E-helper tests
+        env:
+          GOTEST_PKGS: ./e2e/...
+        run: |
+          make bootstrap
+          make generate-all
+          make test-nomad
