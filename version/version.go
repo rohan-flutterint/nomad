@@ -10,6 +10,9 @@ var (
 	GitCommit   string
 	GitDescribe string
 
+	// Whether cgo is enabled or not; set at build time
+	CgoEnabled bool
+
 	// The main version number that is being run at the moment.
 	Version = "1.2.6"
 
