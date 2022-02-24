@@ -48,11 +48,6 @@ jobs:
         run: |
           make version
           echo "::set-output name=product-version::$(make version)"
-      - name: get product version
-        id: get-product-version
-        run: |
-          make version
-          echo "::set-output name=product-version::$(make version)"
   
   generate-metadata-file:
     needs: get-product-version
