@@ -17,12 +17,37 @@ env:
 
 
 jobs:
+  get-go-version:
+    name: "Determine Go toolchain version"
+    runs-on: ubuntu-latest
+    outputs:
+      go-version: ${{ steps.get-go-version.outputs.go-version }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Determine Go version
+        id: get-go-version
+        # We use .go-version as our source of truth for current Go
+        # version, because "goenv" can react to it automatically.
+        run: |
+          echo "Building with Go $(cat .go-version)"
+          echo "::set-output name=go-version::$(cat .go-version)"
+
   get-product-version:
+    needs: get-go-version
     runs-on: ubuntu-latest
     outputs:
       product-version: ${{ steps.get-product-version.outputs.product-version }}
     steps:
       - uses: actions/checkout@v2
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "${{ needs.get-go-version.outputs.go-version }}"
+      - name: get product version
+        id: get-product-version
+        run: |
+          make version
+          echo "::set-output name=product-version::$(make version)"
       - name: get product version
         id: get-product-version
         run: |
@@ -66,21 +91,21 @@ jobs:
           -X \'$project/version.GitCommit=$sha\' \
           -X \'$project/version.GitDescribe=v$(make version base=1)\'""
 
-  build:
-    needs: [get-product-version, set-ld-flags] 
+  build-other:
+    needs: [ get-product-version, get-go-version, set-ld-flags ] 
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        include:
-          - {go: "1.17.7", goos: "linux", goarch: "386"}
-          - {go: "1.17.7", goos: "linux", goarch: "amd64"}
-          - {go: "1.17.7", goos: "linux", goarch: "arm"}
-          - {go: "1.17.7", goos: "linux", goarch: "arm64"}
-          - {go: "1.17.7", goos: "freebsd", goarch: "386"}
-          - {go: "1.17.7", goos: "freebsd", goarch: "amd64"}
-          - {go: "1.17.7", goos: "windows", goarch: "386"}
-          - {go: "1.17.7", goos: "windows", goarch: "amd64"}
-          - {go: "1.17.7", goos: "solaris", goarch: "amd64"}
+        goos: [ freebsd, windows, netbsd, openbsd, solaris ]
+        goarch: [ "386", "amd64", "arm" ]
+        go: [ "${{ needs.get-go-version.outputs.go-version }}" ]
+        exclude:
+          - goos: solaris
+            goarch: 386
+          - goos: solaris
+            goarch: arm
+          - goos: windows
+            goarch: arm
       fail-fast: true
 
     name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
@@ -104,11 +129,45 @@ jobs:
             -ldflags "${{ env.LD_FLAGS }}" \
             -tags "${{ env.GO_TAGS }}"
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
+      
       - uses: actions/upload-artifact@v2
         with:
           name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
           path: out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
+  build-linux:
+    needs: [ get-product-version, get-go-version, set-ld-flags ] 
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [ linux ]
+        goarch: [ "arm", "arm64", "386", "amd64" ]
+        go: [ "${{ needs.get-go-version.outputs.go-version }}" ]
+      fail-fast: true
+
+    name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          mkdir dist out
+          go build -o dist/ .
+          zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
+      - uses: actions/upload-artifact@v2
+        with:
+          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          path: out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+      
       - name: Package
         if: ${{ matrix.goos == 'linux' }}
         uses: hashicorp/actions-packaging-linux@v1
@@ -142,16 +201,15 @@ jobs:
           path: out/${{ env.DEB_PACKAGE }}
 
   build-darwin:
-    needs: [get-product-version, set-ld-flags]
+    needs: [get-product-version, get-go-version, set-ld-flags]
     runs-on: macos-latest
     strategy:
       matrix:
-        goos: [darwin]
-        goarch: ["amd64"]
-        go: ["1.17.7"]
+        goos: [ darwin ]
+        goarch: [ "amd64", "arm64" ]
       fail-fast: true
 
-    name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
+    name: Go ${{ matrix.goos }} ${{ matrix.goarch }} build
 
     env:
       GOOS: ${{ matrix.goos }}
@@ -164,7 +222,7 @@ jobs:
       - name: Setup go
         uses: actions/setup-go@v2
         with:
-          go-version: ${{ matrix.go }}
+          go-version: ${{ needs.get-go-version.outputs.go-version }}
 
       - name: Build
         env: 
@@ -176,7 +234,7 @@ jobs:
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
+          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zipI 
           path: out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
   # This placed here for when the Nomad team is ready to build docker images. 
