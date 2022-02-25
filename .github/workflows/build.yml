@@ -52,14 +52,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [ freebsd, windows, netbsd, openbsd, solaris ]
-        goarch: [ "386", "amd64", "arm" ]
+        goos: [ freebsd, windows ]
+        goarch: [ "386", "amd64" ]
         go: [ "1.17.7" ]
         exclude:
-          - goos: solaris
-            goarch: 386
-          - goos: solaris
-            goarch: arm
           - goos: windows
             goarch: arm
       fail-fast: true
@@ -92,16 +88,19 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [linux]
-        goarch: ["arm", "arm64", "386", "amd64"]
-        go: ["1.17.7"]
+        goos: [ linux ]
+        goarch: [ "arm", "arm64", "386", "amd64" ]
+        go: [ "1.17.7" ]
+        include:
+          - goos: linux
+            goarch: s390x
+            go: "1.17.7"
       fail-fast: true
     
     name: Go ${{ matrix.goos }} ${{ matrix.goarch }} build
 
     steps:
       - uses: actions/checkout@v2
-
       - name: Setup go
         uses: actions/setup-go@v2
         with:
