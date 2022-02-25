@@ -76,7 +76,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir dist out
-          go build -tags -o dist/
+          go build -tags -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
       - uses: actions/upload-artifact@v2
         with:
@@ -113,7 +113,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir dist out
-          go build -tags -o dist/
+          go build -tags -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
@@ -186,7 +186,7 @@ jobs:
 
         run: |
           mkdir dist out
-          go build -tags netcgo -o dist/
+          go build -tags netcgo -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
