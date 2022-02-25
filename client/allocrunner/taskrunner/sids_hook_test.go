@@ -46,7 +46,7 @@ func sidecar(task string) (string, structs.TaskKind) {
 }
 
 func TestSIDSHook_recoverToken(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	secrets := tmpDir(t)
@@ -71,7 +71,7 @@ func TestSIDSHook_recoverToken(t *testing.T) {
 }
 
 func TestSIDSHook_recoverToken_empty(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	secrets := tmpDir(t)
@@ -99,7 +99,6 @@ func TestSIDSHook_recoverToken_unReadable(t *testing.T) {
 		t.Skip("test only works as non-root")
 	}
 
-	
 	r := require.New(t)
 
 	secrets := tmpDir(t)
@@ -122,7 +121,7 @@ func TestSIDSHook_recoverToken_unReadable(t *testing.T) {
 }
 
 func TestSIDSHook_writeToken(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	secrets := tmpDir(t)
@@ -146,7 +145,6 @@ func TestSIDSHook_writeToken_unWritable(t *testing.T) {
 		t.Skip("test only works as non-root")
 	}
 
-	
 	r := require.New(t)
 
 	secrets := tmpDir(t)
@@ -162,7 +160,7 @@ func TestSIDSHook_writeToken_unWritable(t *testing.T) {
 }
 
 func Test_SIDSHook_writeToken_nonExistent(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	base := tmpDir(t)
@@ -176,7 +174,7 @@ func Test_SIDSHook_writeToken_nonExistent(t *testing.T) {
 }
 
 func TestSIDSHook_deriveSIToken(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	taskName, taskKind := sidecar("task1")
@@ -197,7 +195,7 @@ func TestSIDSHook_deriveSIToken(t *testing.T) {
 }
 
 func TestSIDSHook_deriveSIToken_timeout(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	siClient := consulapi.NewMockServiceIdentitiesClient()
@@ -227,7 +225,6 @@ func TestSIDSHook_deriveSIToken_timeout(t *testing.T) {
 }
 
 func TestSIDSHook_computeBackoff(t *testing.T) {
-	
 
 	try := func(i int, exp time.Duration) {
 		result := computeBackoff(i)
@@ -243,7 +240,7 @@ func TestSIDSHook_computeBackoff(t *testing.T) {
 }
 
 func TestSIDSHook_backoff(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	ctx := context.Background()
@@ -252,7 +249,7 @@ func TestSIDSHook_backoff(t *testing.T) {
 }
 
 func TestSIDSHook_backoffKilled(t *testing.T) {
-	
+
 	r := require.New(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1)
@@ -274,7 +271,6 @@ func TestTaskRunner_DeriveSIToken_UnWritableTokenFile(t *testing.T) {
 		t.Skip("test only works as non-root")
 	}
 
-	
 	r := require.New(t)
 
 	alloc := mock.BatchConnectAlloc()

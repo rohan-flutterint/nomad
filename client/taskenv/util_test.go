@@ -209,7 +209,7 @@ func TestAddNestedKey_Ok(t *testing.T) {
 			name = fmt.Sprintf("%s-%d", name, len(tc.M))
 		}
 		t.Run(name, func(t *testing.T) {
-			
+
 			if tc.M == nil {
 				tc.M = map[string]interface{}{}
 			}
@@ -320,7 +320,6 @@ func TestAddNestedKey_Bad(t *testing.T) {
 			name += "-cleanup"
 		}
 		t.Run(name, func(t *testing.T) {
-			
 
 			// Copy original M value to ensure it doesn't get altered
 			if tc.M == nil {
@@ -402,7 +401,6 @@ func TestCtyify_Ok(t *testing.T) {
 	for i := range cases {
 		tc := cases[i]
 		t.Run(tc.Name, func(t *testing.T) {
-			
 
 			// ctiyif and check for errors
 			result, err := ctyify(tc.In)
@@ -441,7 +439,6 @@ func TestCtyify_Bad(t *testing.T) {
 	for i := range cases {
 		tc := cases[i]
 		t.Run(tc.Name, func(t *testing.T) {
-			
 
 			// ctiyif and check for errors
 			result, err := ctyify(tc.In)

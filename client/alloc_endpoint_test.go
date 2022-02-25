@@ -27,7 +27,7 @@ import (
 )
 
 func TestAllocations_Restart(t *testing.T) {
-	
+
 	require := require.New(t)
 	client, cleanup := TestClient(t, nil)
 	defer cleanup()
@@ -66,7 +66,7 @@ func TestAllocations_Restart(t *testing.T) {
 }
 
 func TestAllocations_Restart_ACL(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	server, addr, root, cleanupS := testACLServer(t, nil)
@@ -142,7 +142,7 @@ func TestAllocations_Restart_ACL(t *testing.T) {
 }
 
 func TestAllocations_GarbageCollectAll(t *testing.T) {
-	
+
 	require := require.New(t)
 	client, cleanup := TestClient(t, nil)
 	defer cleanup()
@@ -153,7 +153,7 @@ func TestAllocations_GarbageCollectAll(t *testing.T) {
 }
 
 func TestAllocations_GarbageCollectAll_ACL(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	server, addr, root, cleanupS := testACLServer(t, nil)
@@ -206,7 +206,7 @@ func TestAllocations_GarbageCollectAll_ACL(t *testing.T) {
 }
 
 func TestAllocations_GarbageCollect(t *testing.T) {
-	
+
 	require := require.New(t)
 	client, cleanup := TestClient(t, func(c *config.Config) {
 		c.GCDiskUsageThreshold = 100.0
@@ -249,7 +249,7 @@ func TestAllocations_GarbageCollect(t *testing.T) {
 }
 
 func TestAllocations_GarbageCollect_ACL(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	server, addr, root, cleanupS := testACLServer(t, nil)
@@ -322,7 +322,6 @@ func TestAllocations_GarbageCollect_ACL(t *testing.T) {
 }
 
 func TestAllocations_Signal(t *testing.T) {
-	
 
 	client, cleanup := TestClient(t, nil)
 	defer cleanup()
@@ -348,7 +347,7 @@ func TestAllocations_Signal(t *testing.T) {
 }
 
 func TestAllocations_Signal_ACL(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	server, addr, root, cleanupS := testACLServer(t, nil)
@@ -420,7 +419,7 @@ func TestAllocations_Signal_ACL(t *testing.T) {
 }
 
 func TestAllocations_Stats(t *testing.T) {
-	
+
 	require := require.New(t)
 	client, cleanup := TestClient(t, nil)
 	defer cleanup()
@@ -453,7 +452,7 @@ func TestAllocations_Stats(t *testing.T) {
 }
 
 func TestAllocations_Stats_ACL(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	server, addr, root, cleanupS := testACLServer(t, nil)
@@ -525,7 +524,7 @@ func TestAllocations_Stats_ACL(t *testing.T) {
 }
 
 func TestAlloc_ExecStreaming(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	// Start a server and client
@@ -629,7 +628,7 @@ OUTER:
 }
 
 func TestAlloc_ExecStreaming_NoAllocation(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	// Start a server and client
@@ -684,7 +683,7 @@ func TestAlloc_ExecStreaming_NoAllocation(t *testing.T) {
 }
 
 func TestAlloc_ExecStreaming_DisableRemoteExec(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	// Start a server and client
@@ -740,7 +739,6 @@ func TestAlloc_ExecStreaming_DisableRemoteExec(t *testing.T) {
 }
 
 func TestAlloc_ExecStreaming_ACL_Basic(t *testing.T) {
-	
 
 	// Start a server and client
 	s, root, cleanupS := nomad.TestACLServer(t, nil)
@@ -843,7 +841,7 @@ func TestAlloc_ExecStreaming_ACL_Basic(t *testing.T) {
 // TestAlloc_ExecStreaming_ACL_WithIsolation_Image asserts that token only needs
 // alloc-exec acl policy when image isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_Image(t *testing.T) {
-	
+
 	isolation := drivers.FSIsolationImage
 
 	// Start a server and client
@@ -987,8 +985,6 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Image(t *testing.T) {
 // TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot asserts that token only needs
 // alloc-exec acl policy when chroot isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
-	
-
 	if runtime.GOOS != "linux" || unix.Geteuid() != 0 {
 		t.Skip("chroot isolation requires linux root")
 	}
@@ -1136,7 +1132,7 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 // TestAlloc_ExecStreaming_ACL_WithIsolation_None asserts that token needs
 // alloc-node-exec acl policy as well when no isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_None(t *testing.T) {
-	
+
 	isolation := drivers.FSIsolationNone
 
 	// Start a server and client

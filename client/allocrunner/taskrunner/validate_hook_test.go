@@ -10,7 +10,6 @@ import (
 )
 
 func TestTaskRunner_Validate_UserEnforcement(t *testing.T) {
-	
 
 	taskEnv := taskenv.NewEmptyBuilder().Build()
 	conf := config.DefaultConfig()
@@ -35,7 +34,6 @@ func TestTaskRunner_Validate_UserEnforcement(t *testing.T) {
 }
 
 func TestTaskRunner_Validate_ServiceName(t *testing.T) {
-	
 
 	builder := taskenv.NewEmptyBuilder()
 	conf := config.DefaultConfig()

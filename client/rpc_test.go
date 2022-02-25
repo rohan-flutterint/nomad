@@ -13,7 +13,7 @@ import (
 )
 
 func TestRpc_streamingRpcConn_badEndpoint(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	s1, cleanupS1 := nomad.TestServer(t, nil)
@@ -51,7 +51,7 @@ func TestRpc_streamingRpcConn_badEndpoint(t *testing.T) {
 }
 
 func TestRpc_streamingRpcConn_badEndpoint_TLS(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	const (

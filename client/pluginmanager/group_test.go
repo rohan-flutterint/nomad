@@ -11,7 +11,7 @@ import (
 )
 
 func TestPluginGroup_RegisterAndRun(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	var hasRun bool
@@ -29,7 +29,7 @@ func TestPluginGroup_RegisterAndRun(t *testing.T) {
 }
 
 func TestPluginGroup_Shutdown(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	var stack []int
@@ -66,7 +66,7 @@ func TestPluginGroup_Shutdown(t *testing.T) {
 }
 
 func TestPluginGroup_WaitForFirstFingerprint(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	managerCh := make(chan struct{})
@@ -95,7 +95,7 @@ func TestPluginGroup_WaitForFirstFingerprint(t *testing.T) {
 }
 
 func TestPluginGroup_WaitForFirstFingerprint_Timeout(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	managerCh := make(chan struct{})

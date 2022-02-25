@@ -8,7 +8,7 @@ import (
 )
 
 func TestFingerprintManager_Run_ResourcesFingerprint(t *testing.T) {
-	
+
 	require := require.New(t)
 	testClient, cleanup := TestClient(t, nil)
 	defer cleanup()
@@ -33,7 +33,7 @@ func TestFingerprintManager_Run_ResourcesFingerprint(t *testing.T) {
 }
 
 func TestFimgerprintManager_Run_InWhitelist(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	testClient, cleanup := TestClient(t, func(c *config.Config) {
@@ -62,7 +62,7 @@ func TestFimgerprintManager_Run_InWhitelist(t *testing.T) {
 }
 
 func TestFingerprintManager_Run_InDenylist(t *testing.T) {
-	
+
 	require := require.New(t)
 	testClient, cleanup := TestClient(t, func(c *config.Config) {
 		c.Options = map[string]string{
@@ -91,7 +91,7 @@ func TestFingerprintManager_Run_InDenylist(t *testing.T) {
 }
 
 func TestFingerprintManager_Run_Combination(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	testClient, cleanup := TestClient(t, func(c *config.Config) {
@@ -123,7 +123,7 @@ func TestFingerprintManager_Run_Combination(t *testing.T) {
 }
 
 func TestFingerprintManager_Run_CombinationLegacyNames(t *testing.T) {
-	
+
 	require := require.New(t)
 
 	testClient, cleanup := TestClient(t, func(c *config.Config) {

@@ -12,7 +12,6 @@ import (
 // TestInterpolateServices asserts that all service
 // and check fields are properly interpolated.
 func TestInterpolateServices(t *testing.T) {
-	
 
 	services := []*structs.Service{
 		{
@@ -107,7 +106,6 @@ var testEnv = NewTaskEnv(
 	nil, nil, "", "")
 
 func TestInterpolate_interpolateMapStringSliceString(t *testing.T) {
-	
 
 	t.Run("nil", func(t *testing.T) {
 		require.Nil(t, interpolateMapStringSliceString(testEnv, nil))
@@ -125,7 +123,6 @@ func TestInterpolate_interpolateMapStringSliceString(t *testing.T) {
 }
 
 func TestInterpolate_interpolateMapStringString(t *testing.T) {
-	
 
 	t.Run("nil", func(t *testing.T) {
 		require.Nil(t, interpolateMapStringString(testEnv, nil))
@@ -143,7 +140,6 @@ func TestInterpolate_interpolateMapStringString(t *testing.T) {
 }
 
 func TestInterpolate_interpolateMapStringInterface(t *testing.T) {
-	
 
 	t.Run("nil", func(t *testing.T) {
 		require.Nil(t, interpolateMapStringInterface(testEnv, nil))
@@ -161,7 +157,6 @@ func TestInterpolate_interpolateMapStringInterface(t *testing.T) {
 }
 
 func TestInterpolate_interpolateConnect(t *testing.T) {
-	
 
 	e := map[string]string{
 		"tag1":              "_tag1",

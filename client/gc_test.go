@@ -37,7 +37,7 @@ func exitAllocRunner(runners ...AllocRunner) {
 }
 
 func TestIndexedGCAllocPQ(t *testing.T) {
-	
+
 	pq := NewIndexedGCAllocPQ()
 
 	ar1, cleanup1 := allocrunner.TestAllocRunnerFromAlloc(t, mock.Alloc())
@@ -122,7 +122,7 @@ func (m *MockStatsCollector) Stats() *stats.HostStats {
 }
 
 func TestAllocGarbageCollector_MarkForCollection(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	gc := NewAllocGarbageCollector(logger, &MockStatsCollector{}, &MockAllocCounter{}, gcConfig())
 
@@ -138,7 +138,7 @@ func TestAllocGarbageCollector_MarkForCollection(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_Collect(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	gc := NewAllocGarbageCollector(logger, &MockStatsCollector{}, &MockAllocCounter{}, gcConfig())
 
@@ -164,7 +164,7 @@ func TestAllocGarbageCollector_Collect(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_CollectAll(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	gc := NewAllocGarbageCollector(logger, &MockStatsCollector{}, &MockAllocCounter{}, gcConfig())
 
@@ -184,7 +184,7 @@ func TestAllocGarbageCollector_CollectAll(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_MakeRoomForAllocations_EnoughSpace(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()
@@ -226,7 +226,7 @@ func TestAllocGarbageCollector_MakeRoomForAllocations_EnoughSpace(t *testing.T) 
 }
 
 func TestAllocGarbageCollector_MakeRoomForAllocations_GC_Partial(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()
@@ -269,7 +269,7 @@ func TestAllocGarbageCollector_MakeRoomForAllocations_GC_Partial(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_MakeRoomForAllocations_GC_All(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()
@@ -308,7 +308,7 @@ func TestAllocGarbageCollector_MakeRoomForAllocations_GC_All(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_MakeRoomForAllocations_GC_Fallback(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()
@@ -494,7 +494,7 @@ func TestAllocGarbageCollector_MakeRoomFor_MaxAllocs(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_UsageBelowThreshold(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()
@@ -533,7 +533,7 @@ func TestAllocGarbageCollector_UsageBelowThreshold(t *testing.T) {
 }
 
 func TestAllocGarbageCollector_UsedPercentThreshold(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	statsCollector := &MockStatsCollector{}
 	conf := gcConfig()

@@ -89,7 +89,7 @@ func TestScript_Exec_Cancel(t *testing.T) {
 // TestScript_Exec_TimeoutBasic asserts a script will be killed when the
 // timeout is reached.
 func TestScript_Exec_TimeoutBasic(t *testing.T) {
-	
+
 	exec, cancel := newBlockingScriptExec()
 	defer cancel()
 
@@ -130,7 +130,7 @@ func TestScript_Exec_TimeoutBasic(t *testing.T) {
 // the timeout is reached and always set a critical status regardless of what
 // Exec returns.
 func TestScript_Exec_TimeoutCritical(t *testing.T) {
-	
+
 	logger := testlog.HCLogger(t)
 	hb := newFakeHeartbeater()
 	script := newScriptMock(hb, sleeperExec{}, logger, time.Hour, time.Nanosecond)

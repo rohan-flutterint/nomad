@@ -25,7 +25,6 @@ var fakeNodePlugin = &dynamicplugins.PluginInfo{
 }
 
 func TestCSIController_AttachVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -172,7 +171,6 @@ func TestCSIController_AttachVolume(t *testing.T) {
 }
 
 func TestCSIController_ValidateVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -275,7 +273,6 @@ func TestCSIController_ValidateVolume(t *testing.T) {
 }
 
 func TestCSIController_DetachVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -358,7 +355,6 @@ func TestCSIController_DetachVolume(t *testing.T) {
 }
 
 func TestCSIController_CreateVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -460,7 +456,6 @@ func TestCSIController_CreateVolume(t *testing.T) {
 }
 
 func TestCSIController_DeleteVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -524,7 +519,6 @@ func TestCSIController_DeleteVolume(t *testing.T) {
 }
 
 func TestCSIController_ListVolumes(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -632,7 +626,6 @@ func TestCSIController_ListVolumes(t *testing.T) {
 	}
 }
 func TestCSIController_CreateSnapshot(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -725,7 +718,6 @@ func TestCSIController_CreateSnapshot(t *testing.T) {
 }
 
 func TestCSIController_DeleteSnapshot(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -789,7 +781,6 @@ func TestCSIController_DeleteSnapshot(t *testing.T) {
 }
 
 func TestCSIController_ListSnapshots(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string
@@ -893,7 +884,6 @@ func TestCSIController_ListSnapshots(t *testing.T) {
 }
 
 func TestCSINode_DetachVolume(t *testing.T) {
-	
 
 	cases := []struct {
 		Name             string

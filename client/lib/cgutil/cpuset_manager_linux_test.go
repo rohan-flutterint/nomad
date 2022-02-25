@@ -7,20 +7,17 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/hashicorp/nomad/helper/testlog"
+	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/lib/cpuset"
 	"github.com/hashicorp/nomad/nomad/mock"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-
-	"github.com/hashicorp/nomad/helper/uuid"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/hashicorp/nomad/helper/testlog"
 )
 
 func tmpCpusetManager(t *testing.T) (manager *cpusetManager, cleanup func()) {
-	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 {
-		t.Skip("Test only available running as root on linux")
+	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 || runtime.NumCPU() < 2 {
+		t.Skip("Test only available running as root on linux with 2+ CPU cores")
 	}
 	mount, err := FindCgroupMountpointDir()
 	if err != nil || mount == "" {
