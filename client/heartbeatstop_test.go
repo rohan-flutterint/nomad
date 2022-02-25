@@ -12,7 +12,7 @@ import (
 )
 
 func TestHeartbeatStop_allocHook(t *testing.T) {
-	t.Parallel()
+	
 
 	server, _, cleanupS1 := testServer(t, nil)
 	defer cleanupS1()

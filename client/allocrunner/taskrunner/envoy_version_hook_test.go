@@ -24,7 +24,7 @@ var (
 )
 
 func TestEnvoyVersionHook_semver(t *testing.T) {
-	t.Parallel()
+	
 
 	t.Run("with v", func(t *testing.T) {
 		result, err := semver("v1.2.3")
@@ -45,7 +45,7 @@ func TestEnvoyVersionHook_semver(t *testing.T) {
 }
 
 func TestEnvoyVersionHook_taskImage(t *testing.T) {
-	t.Parallel()
+	
 
 	t.Run("absent", func(t *testing.T) {
 		result := (*envoyVersionHook)(nil).taskImage(map[string]interface{}{
@@ -70,7 +70,7 @@ func TestEnvoyVersionHook_taskImage(t *testing.T) {
 }
 
 func TestEnvoyVersionHook_tweakImage(t *testing.T) {
-	t.Parallel()
+	
 
 	image := envoy.ImageFormat
 
@@ -106,7 +106,7 @@ func TestEnvoyVersionHook_tweakImage(t *testing.T) {
 }
 
 func TestEnvoyVersionHook_interpolateImage(t *testing.T) {
-	t.Parallel()
+	
 
 	hook := (*envoyVersionHook)(nil)
 
@@ -156,7 +156,7 @@ func TestEnvoyVersionHook_interpolateImage(t *testing.T) {
 }
 
 func TestEnvoyVersionHook_skip(t *testing.T) {
-	t.Parallel()
+	
 
 	h := new(envoyVersionHook)
 
@@ -221,7 +221,7 @@ func TestEnvoyVersionHook_skip(t *testing.T) {
 }
 
 func TestTaskRunner_EnvoyVersionHook_Prestart_standard(t *testing.T) {
-	t.Parallel()
+	
 
 	logger := testlog.HCLogger(t)
 
@@ -264,7 +264,7 @@ func TestTaskRunner_EnvoyVersionHook_Prestart_standard(t *testing.T) {
 }
 
 func TestTaskRunner_EnvoyVersionHook_Prestart_custom(t *testing.T) {
-	t.Parallel()
+	
 
 	logger := testlog.HCLogger(t)
 
@@ -308,7 +308,7 @@ func TestTaskRunner_EnvoyVersionHook_Prestart_custom(t *testing.T) {
 }
 
 func TestTaskRunner_EnvoyVersionHook_Prestart_skip(t *testing.T) {
-	t.Parallel()
+	
 
 	logger := testlog.HCLogger(t)
 
@@ -355,7 +355,7 @@ func TestTaskRunner_EnvoyVersionHook_Prestart_skip(t *testing.T) {
 }
 
 func TestTaskRunner_EnvoyVersionHook_Prestart_fallback(t *testing.T) {
-	t.Parallel()
+	
 
 	logger := testlog.HCLogger(t)
 
@@ -396,7 +396,7 @@ func TestTaskRunner_EnvoyVersionHook_Prestart_fallback(t *testing.T) {
 }
 
 func TestTaskRunner_EnvoyVersionHook_Prestart_error(t *testing.T) {
-	t.Parallel()
+	
 
 	logger := testlog.HCLogger(t)
 

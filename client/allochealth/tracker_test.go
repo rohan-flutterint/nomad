@@ -19,7 +19,7 @@ import (
 )
 
 func TestTracker_Checks_Healthy(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.Alloc()
 	alloc.Job.TaskGroups[0].Migrate.MinHealthyTime = 1 // let's speed things up
@@ -90,7 +90,7 @@ func TestTracker_Checks_Healthy(t *testing.T) {
 }
 
 func TestTracker_Checks_PendingPostStop_Healthy(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.LifecycleAllocWithPoststopDeploy()
 	alloc.Job.TaskGroups[0].Migrate.MinHealthyTime = 1 // let's speed things up
@@ -130,7 +130,7 @@ func TestTracker_Checks_PendingPostStop_Healthy(t *testing.T) {
 }
 
 func TestTracker_Succeeded_PostStart_Healthy(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.LifecycleAllocWithPoststartDeploy()
 	alloc.Job.TaskGroups[0].Migrate.MinHealthyTime = time.Millisecond * 1
@@ -171,7 +171,7 @@ func TestTracker_Succeeded_PostStart_Healthy(t *testing.T) {
 }
 
 func TestTracker_Checks_Unhealthy(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.Alloc()
 	alloc.Job.TaskGroups[0].Migrate.MinHealthyTime = 1 // let's speed things up
@@ -261,7 +261,7 @@ func TestTracker_Checks_Unhealthy(t *testing.T) {
 }
 
 func TestTracker_Healthy_IfBothTasksAndConsulChecksAreHealthy(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.Alloc()
 	logger := testlog.HCLogger(t)
@@ -312,7 +312,7 @@ func TestTracker_Healthy_IfBothTasksAndConsulChecksAreHealthy(t *testing.T) {
 // TestTracker_Checks_Healthy_Before_TaskHealth asserts that we mark an alloc
 // healthy, if the checks pass before task health pass
 func TestTracker_Checks_Healthy_Before_TaskHealth(t *testing.T) {
-	t.Parallel()
+	
 
 	alloc := mock.Alloc()
 	alloc.Job.TaskGroups[0].Migrate.MinHealthyTime = 1 // let's speed things up
@@ -419,7 +419,7 @@ func TestTracker_Checks_Healthy_Before_TaskHealth(t *testing.T) {
 }
 
 func TestTracker_Checks_OnUpdate(t *testing.T) {
-	t.Parallel()
+	
 
 	cases := []struct {
 		desc          string
