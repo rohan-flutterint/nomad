@@ -58,8 +58,6 @@ jobs:
         exclude:
           - goos: freebsd
             goarch: 386
-          - goos: windows
-            goarch: arm
       fail-fast: true
 
     name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
@@ -78,7 +76,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir dist out
-          go build -tags netcgo -o dist/
+          go build -tags -o dist/
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
       - uses: actions/upload-artifact@v2
         with:
@@ -99,7 +97,7 @@ jobs:
             go: "1.17.7"
       fail-fast: true
     
-    name: Go ${{ matrix.goos }} ${{ matrix.goarch }} build
+    name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
 
     steps:
       - uses: actions/checkout@v2
@@ -115,7 +113,7 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir dist out
-          go build -tags netcgo -o dist/
+          go build -tags -o dist/
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
@@ -170,7 +168,7 @@ jobs:
         go: [ "1.17" ]
       fail-fast: true
 
-    name: Go ${{ matrix.goos }} ${{ matrix.goarch }} build
+    name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
 
     steps:
       - uses: actions/checkout@v2
