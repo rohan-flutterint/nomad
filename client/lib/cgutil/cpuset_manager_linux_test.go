@@ -123,15 +123,25 @@ func TestCpusetManager_RemoveAlloc(t *testing.T) {
 		t.Skip("test requires at least 2 cpu cores")
 	}
 
+	cpuSetSize := manager.parentCpuset.Size()
+	runtimeNumCPU := runtime.NumCPU()
+	if cpuSetSize < 2 || runtimeNumCPU < 2 {
+		t.Skip("test requires at least 2 cpu cores")
+	}
+
+	t.Logf("cpuSetSize: %d, runtimeNumCPU: %d", cpuSetSize, runtimeNumCPU)
+
 	alloc1 := mock.Alloc()
 	alloc1Cpuset := cpuset.New(manager.parentCpuset.ToSlice()[0])
 	alloc1.AllocatedResources.Tasks["web"].Cpu.ReservedCores = alloc1Cpuset.ToSlice()
 	manager.AddAlloc(alloc1)
+	t.Log("alloc1Cpuset:", alloc1Cpuset)
 
 	alloc2 := mock.Alloc()
 	alloc2Cpuset := cpuset.New(manager.parentCpuset.ToSlice()[1])
 	alloc2.AllocatedResources.Tasks["web"].Cpu.ReservedCores = alloc2Cpuset.ToSlice()
 	manager.AddAlloc(alloc2)
+	t.Log("alloc2Cpuset:", alloc2Cpuset)
 
 	//force reconcile
 	manager.reconcileCpusets()
@@ -141,6 +151,12 @@ func TestCpusetManager_RemoveAlloc(t *testing.T) {
 	require.NoError(t, err)
 	sharedCpus, err := cpuset.Parse(string(sharedCpusRaw))
 	require.NoError(t, err)
+
+	t.Log("END sharedCpus:", sharedCpus)
+	t.Log("END alloc1Cpuset:", alloc1Cpuset)
+	t.Log("END alloc2Cpuset:", alloc2Cpuset)
+	t.Log("END union:", alloc1Cpuset.Union(alloc2Cpuset))
+
 	require.False(t, sharedCpus.ContainsAny(alloc1Cpuset.Union(alloc2Cpuset)))
 
 	// reserved cpuset should equal the expected cpus

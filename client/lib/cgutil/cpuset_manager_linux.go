@@ -192,8 +192,13 @@ func (c *cpusetManager) reconcileLoop() {
 func (c *cpusetManager) reconcileCpusets() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
 	sharedCpuset := cpuset.New(c.parentCpuset.ToSlice()...)
+	fmt.Println("rc sharedCpuset:", sharedCpuset)
+
 	reservedCpuset := cpuset.New()
+	fmt.Println("rc reservedCpuset:", reservedCpuset)
+
 	taskCpusets := map[string]*TaskCgroupInfo{}
 	for _, alloc := range c.cgroupInfo {
 		for _, task := range alloc {

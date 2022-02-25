@@ -90,42 +90,7 @@ jobs:
       fail-fast: false
       matrix:
         pkg:
-          - acl
-          - client
-          - client/allocdir
-          - client/allochealth
-          - client/allocrunner
-          - client/allocwatcher
-          - client/config
-          - client/consul
-          - client/devicemanager
-          - client/dynamicplugins
-          - client/fingerprint
           - client/lib/...
-          - client/logmon
-          - client/pluginmanager
-          - client/state
-          - client/stats
-          - client/structs
-          - client/taskenv
-          - command
-          - command/agent
-          - drivers/docker
-          - drivers/exec
-          - drivers/java
-          - drivers/rawexec
-          - helper/...
-          - internal/...
-          - jobspec/...
-          - lib/...
-          - nomad
-          - nomad/deploymentwatcher
-          - nomad/stream
-          - nomad/structs
-          - nomad/volumewatcher
-          - plugins/...
-          - scheduler/...
-          - testutil
     steps:
       - uses: actions/checkout@v2
       - uses: magnetikonline/action-golang-cache@v1
@@ -142,3 +107,42 @@ jobs:
           hc-install consul ${{env.CONSUL_VERSION}}
           sudo sed -i 's!Defaults!#Defaults!g' /etc/sudoers
           sudo -E env "PATH=$PATH" make test-nomad          
+
+
+          # - acl
+          # - client
+          # - client/allocdir
+          # - client/allochealth
+          # - client/allocrunner
+          # - client/allocwatcher
+          # - client/config
+          # - client/consul
+          # - client/devicemanager
+          # - client/dynamicplugins
+          # - client/fingerprint
+          # - client/lib/...
+          # - client/logmon
+          # - client/pluginmanager
+          # - client/state
+          # - client/stats
+          # - client/structs
+          # - client/taskenv
+          # - command
+          # - command/agent
+          # - drivers/docker
+          # - drivers/exec
+          # - drivers/java
+          # - drivers/rawexec
+          # - helper/...
+          # - internal/...
+          # - jobspec/...
+          # - lib/...
+          # - nomad
+          # - nomad/deploymentwatcher
+          # - nomad/stream
+          # - nomad/structs
+          # - nomad/volumewatcher
+          # - plugins/...
+          # - scheduler/...
+          # - testutil
+          
