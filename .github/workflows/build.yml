@@ -12,7 +12,7 @@ on:
 
 env:
   PKG_NAME: "nomad"
-  GO_TAGS: ""
+  # GO_TAGS: ""
 
 jobs:
   get-product-version:
@@ -75,8 +75,9 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          mkdir dist out
-          go build -tags -o dist/ .
+          mkdir -p dist out
+          unset GOPATH;
+          go build -v -tags -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
       - uses: actions/upload-artifact@v2
         with:
@@ -112,8 +113,9 @@ jobs:
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: 0
         run: |
-          mkdir dist out
-          go build -tags -o dist/ .
+          mkdir -p dist out
+          unset GOPATH;
+          go build -v -tags -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
@@ -185,8 +187,9 @@ jobs:
           CGO_ENABLED: 0
 
         run: |
-          mkdir dist out
-          go build -tags netcgo -o dist/ .
+          mkdir -p dist out
+          unset GOPATH;
+          go build -v -tags netcgo -o dist/ .
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
