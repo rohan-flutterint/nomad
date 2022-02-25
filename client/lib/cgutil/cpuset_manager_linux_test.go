@@ -16,8 +16,8 @@ import (
 )
 
 func tmpCpusetManager(t *testing.T) (manager *cpusetManager, cleanup func()) {
-	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 || runtime.NumCPU() < 2 {
-		t.Skip("Test only available running as root on linux with 2+ CPU cores")
+	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 {
+		t.Skip("Test only available running as root on linux")
 	}
 	mount, err := FindCgroupMountpointDir()
 	if err != nil || mount == "" {
@@ -118,9 +118,9 @@ func TestCpusetManager_RemoveAlloc(t *testing.T) {
 	require.NoError(t, manager.Init())
 
 	// this case tests adding 2 allocs, reconciling then removing 1 alloc
-	// it requires the system to have atleast 2 cpu cores (one for each alloc)
+	// it requires the system to have at least 2 cpu cores (one for each alloc)
 	if manager.parentCpuset.Size() < 2 {
-		t.Skip("test requires atleast 2 cpu cores")
+		t.Skip("test requires at least 2 cpu cores")
 	}
 
 	alloc1 := mock.Alloc()
