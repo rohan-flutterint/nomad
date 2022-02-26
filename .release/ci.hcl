@@ -57,7 +57,7 @@ event "security-scan-binaries" {
 }
 
 event "notarize-darwin-amd64" {
-  depends = ["security-scan-containers"]
+  depends = ["security-scan-binaries"]
   action "notarize-darwin-amd64" {
     organization = "hashicorp"
     repository = "crt-workflows-common"
