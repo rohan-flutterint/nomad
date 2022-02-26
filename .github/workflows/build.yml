@@ -47,17 +47,14 @@ jobs:
           name: metadata.json
           path: ${{ steps.generate-metadata-file.outputs.filepath }}
   
-  build:
+  build-other:
     needs: get-product-version
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        goos: [ freebsd, windows ]
+        goos: [ windows ]
         goarch: [ "386", "amd64" ]
         go: [ "1.17.7" ]
-        exclude:
-          - goos: freebsd
-            goarch: 386
       fail-fast: true
 
     name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
@@ -118,7 +115,7 @@ jobs:
 
       - uses: actions/upload-artifact@v2
         with:
-          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zipI 
+          name: ${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
           path: out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
 
