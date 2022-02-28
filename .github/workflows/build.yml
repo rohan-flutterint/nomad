@@ -12,7 +12,7 @@ on:
 
 env:
   PKG_NAME: "nomad"
-  # GO_TAGS: ""
+  GO_TAGS: "ui"
 
 jobs:
   get-product-version:
@@ -47,6 +47,22 @@ jobs:
           name: metadata.json
           path: ${{ steps.generate-metadata-file.outputs.filepath }}
   
+  set-ld-flags:
+    needs: get-product-version
+    runs-on: ubuntu-latest
+    outputs:
+      ldflags: ${{ steps.generate-ld-flags.outputs.ldflags }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: 'Generate ld flags'
+        id: generate-ld-flags
+        run: |
+          project="$(go list -m)"
+          sha="$(git rev-parse --short HEAD)"
+          echo "::set-output name=ldflags::"-s -w -X \'$project/version.Name=${{ env.PKG_NAME }}\' \
+          -X \'$project/version.GitCommit=$sha\' \
+          -X \'$project/version.GitDescribe=v$(make version base=1)\'""
+  
   build-other:
     needs: get-product-version
     runs-on: ubuntu-latest
@@ -58,22 +74,38 @@ jobs:
       fail-fast: true
 
     name: Go ${{ matrix.go }} ${{ matrix.goos }} ${{ matrix.goarch }} build
-
     steps:
       - uses: actions/checkout@v2
       - name: Setup go
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      
+      - name: Setup node and yarn
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          cache: 'yarn'
+          cache-dependency-path: 'ui/yarn.lock'
+      
+      - name: UI Build
+        run: |
+          cd ui
+          yarn install --network-timeout 300000
+          yarn --verbose run build
+          cd ..
 
-      - name: Go Build
+      - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          LD_FLAGS: ${{ needs.set-ld-flags.outputs.ldflags }}
           CGO_ENABLED: 0
         run: |
           mkdir -p dist out
-          go build -o dist/ .
+          go build -o dist/ \
+          -ldflags "${{ env.LD_FLAGS }}" \
+          -tags "${{ env.GO_TAGS }}"
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
       - uses: actions/upload-artifact@v2
         with:
@@ -102,15 +134,32 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      
+      - name: Setup node and yarn
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          cache: 'yarn'
+          cache-dependency-path: 'ui/yarn.lock'
+      
+      - name: UI Build
+        run: |
+          cd ui
+          yarn install --network-timeout 300000
+          yarn --verbose run build
+          cd ..
 
-      - name: Go Build
+      - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          LD_FLAGS: ${{ needs.set-ld-flags.outputs.ldflags }}
           CGO_ENABLED: 0
         run: |
           mkdir -p dist out
-          go build -o dist/ .
+          go build -o dist/ \
+          -ldflags "${{ env.LD_FLAGS }}" \
+          -tags "${{ env.GO_TAGS }}"
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
@@ -174,16 +223,34 @@ jobs:
         uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      
+      - name: Setup node and yarn
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+          cache: 'yarn'
+          cache-dependency-path: 'ui/yarn.lock'
+      
+      - name: UI Build
+        run: |
+          cd ui
+          yarn install --network-timeout 300000
+          yarn --verbose run build
+          cd ..
 
-      - name: Go Build
+      - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
+          GO_TAGS: "${{ env.GO_TAGS }} netcgo"
+          LD_FLAGS: ${{ needs.set-ld-flags.outputs.ldflags }}
           CGO_ENABLED: 0
 
         run: |
           mkdir -p dist out
-          go build -v -tags netcgo -o dist/ .
+          go build -o dist/ \
+          -ldflags "${{ env.LD_FLAGS }}" \
+          -tags "${{ env.GO_TAGS }}"
           zip -r -j out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip dist/
 
       - uses: actions/upload-artifact@v2
