@@ -1,42 +1,35 @@
 package cgutil
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
-	cgroupFs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
-
+	"github.com/hashicorp/go-hclog"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
-	"github.com/opencontainers/runc/libcontainer/configs"
 	"golang.org/x/sys/unix"
 )
 
-const (
-	DefaultCgroupParent      = "/nomad"
-	SharedCpusetCgroupName   = "shared"
-	ReservedCpusetCgroupName = "reserved"
-)
+// CreateCPUSetManager creates a V1 or V2 CpusetManager depending on system configuration.
+func CreateCPUSetManager(parent string, logger hclog.Logger) CpusetManager {
+	if cgroups.IsCgroup2UnifiedMode() {
+		return NewCpusetManagerV2(getParentV2(parent), logger.Named("cpuset.v2"))
+	}
+	return NewCpusetManagerV1(getParentV1(parent), logger.Named("cpuset.v1"))
+}
 
 func GetCPUsFromCgroup(group string) ([]uint16, error) {
-	cgroupPath, err := getCgroupPathHelper("cpuset", group)
-	if err != nil {
-		return nil, err
+	if cgroups.IsCgroup2UnifiedMode() {
+		return getCPUsFromCgroupV2(getParentV2(group))
 	}
-
-	man := cgroupFs.NewManager(&configs.Cgroup{Path: group}, map[string]string{"cpuset": cgroupPath}, false)
-	stats, err := man.GetStats()
-	if err != nil {
-		return nil, err
-	}
-	return stats.CPUSetStats.CPUs, nil
+	return getCPUsFromCgroupV1(getParentV1(group))
 }
 
 func getCpusetSubsystemSettings(parent string) (cpus, mems string, err error) {
-	if cpus, err = fscommon.ReadFile(parent, "cpuset.cpus"); err != nil {
+	if cpus, err = cgroups.ReadFile(parent, "cpuset.cpus"); err != nil {
 		return
 	}
-	if mems, err = fscommon.ReadFile(parent, "cpuset.mems"); err != nil {
+	if mems, err = cgroups.ReadFile(parent, "cpuset.mems"); err != nil {
 		return
 	}
 	return cpus, mems, nil
@@ -82,12 +75,12 @@ func cpusetCopyIfNeeded(current, parent string) error {
 	}
 
 	if isEmptyCpuset(currentCpus) {
-		if err := fscommon.WriteFile(current, "cpuset.cpus", parentCpus); err != nil {
+		if err := cgroups.WriteFile(current, "cpuset.cpus", parentCpus); err != nil {
 			return err
 		}
 	}
 	if isEmptyCpuset(currentMems) {
-		if err := fscommon.WriteFile(current, "cpuset.mems", parentMems); err != nil {
+		if err := cgroups.WriteFile(current, "cpuset.mems", parentMems); err != nil {
 			return err
 		}
 	}
@@ -99,8 +92,10 @@ func isEmptyCpuset(str string) bool {
 }
 
 func getCgroupPathHelper(subsystem, cgroup string) (string, error) {
+	fmt.Println("FindCgroupMountPointAndRoot, subsystem:", subsystem, "cgroup:", cgroup)
 	mnt, root, err := cgroups.FindCgroupMountpointAndRoot("", subsystem)
 	if err != nil {
+		fmt.Println("SH A:", err)
 		return "", err
 	}
 
@@ -108,9 +103,11 @@ func getCgroupPathHelper(subsystem, cgroup string) (string, error) {
 	// see paths from host, which don't exist in container.
 	relCgroup, err := filepath.Rel(root, cgroup)
 	if err != nil {
+		fmt.Println("SH B:", err)
 		return "", err
 	}
 
+	fmt.Println("SH C")
 	return filepath.Join(mnt, relCgroup), nil
 }
 

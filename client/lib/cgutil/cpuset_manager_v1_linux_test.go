@@ -3,25 +3,18 @@ package cgutil
 import (
 	"io/ioutil"
 	"path/filepath"
-	"runtime"
-	"syscall"
 	"testing"
 
+	"github.com/hashicorp/nomad/client/testutil"
+	"github.com/hashicorp/nomad/helper/testlog"
+	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/lib/cpuset"
 	"github.com/hashicorp/nomad/nomad/mock"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
-
-	"github.com/hashicorp/nomad/helper/uuid"
-
 	"github.com/stretchr/testify/require"
-
-	"github.com/hashicorp/nomad/helper/testlog"
 )
 
-func tmpCpusetManager(t *testing.T) (manager *cpusetManager, cleanup func()) {
-	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 {
-		t.Skip("Test only available running as root on linux")
-	}
+func tmpCpusetManagerV1(t *testing.T) (manager *cpusetManagerV1, cleanup func()) {
 	mount, err := FindCgroupMountpointDir()
 	if err != nil || mount == "" {
 		t.Skipf("Failed to find cgroup mount: %v %v", mount, err)
@@ -30,7 +23,7 @@ func tmpCpusetManager(t *testing.T) (manager *cpusetManager, cleanup func()) {
 	parent := "/gotest-" + uuid.Short()
 	require.NoError(t, cpusetEnsureParent(parent))
 
-	manager = &cpusetManager{
+	manager = &cpusetManagerV1{
 		cgroupParent: parent,
 		cgroupInfo:   map[string]allocTaskCgroupInfo{},
 		logger:       testlog.HCLogger(t),
@@ -42,8 +35,10 @@ func tmpCpusetManager(t *testing.T) (manager *cpusetManager, cleanup func()) {
 	return manager, func() { require.NoError(t, cgroups.RemovePaths(map[string]string{"cpuset": parentPath})) }
 }
 
-func TestCpusetManager_Init(t *testing.T) {
-	manager, cleanup := tmpCpusetManager(t)
+func TestCpusetManager_V1_Init(t *testing.T) {
+	testutil.CgroupV1Compatible(t)
+
+	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
 	require.NoError(t, manager.Init())
 
@@ -57,8 +52,10 @@ func TestCpusetManager_Init(t *testing.T) {
 	require.DirExists(t, filepath.Join(manager.cgroupParentPath, ReservedCpusetCgroupName))
 }
 
-func TestCpusetManager_AddAlloc_single(t *testing.T) {
-	manager, cleanup := tmpCpusetManager(t)
+func TestCpusetManager_V1_AddAlloc_single(t *testing.T) {
+	testutil.CgroupV1Compatible(t)
+
+	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
 	require.NoError(t, manager.Init())
 
@@ -104,19 +101,25 @@ func TestCpusetManager_AddAlloc_single(t *testing.T) {
 	require.Exactly(t, alloc.AllocatedResources.Tasks["web"].Cpu.ReservedCores, taskCpus.ToSlice())
 }
 
-func TestCpusetManager_AddAlloc_subset(t *testing.T) {
+func TestCpusetManager_V1_AddAlloc_subset(t *testing.T) {
+	testutil.CgroupV1Compatible(t)
+
 	t.Skip("todo: add test for #11933")
 }
 
-func TestCpusetManager_AddAlloc_all(t *testing.T) {
+func TestCpusetManager_V1_AddAlloc_all(t *testing.T) {
+	testutil.CgroupV1Compatible(t)
+
 	// cgroupsv2 changes behavior of writing empty cpuset.cpu, which is what
 	// happens to the /shared group when one or more allocs consume all available
 	// cores.
 	t.Skip("todo: add test for #11933")
 }
 
-func TestCpusetManager_RemoveAlloc(t *testing.T) {
-	manager, cleanup := tmpCpusetManager(t)
+func TestCpusetManager_V1_RemoveAlloc(t *testing.T) {
+	testutil.CgroupV1Compatible(t)
+
+	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
 	require.NoError(t, manager.Init())
 

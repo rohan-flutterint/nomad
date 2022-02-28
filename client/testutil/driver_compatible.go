@@ -6,17 +6,19 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/hashicorp/nomad/client/lib/cgutil"
+	"github.com/opencontainers/runc/libcontainer/cgroups"
 )
 
-// RequireRoot skips tests unless running on a Unix as root.
+// RequireRoot skips tests unless:
+// - running as root
 func RequireRoot(t *testing.T) {
 	if syscall.Geteuid() != 0 {
-		t.Skip("Must run as root on Unix")
+		t.Skip("Test requires root")
 	}
 }
 
-// RequireConsul skips tests unless a Consul binary is available on $PATH.
+// RequireConsul skips tests unless:
+// - "consul" executable is detected on $PATH
 func RequireConsul(t *testing.T) {
 	_, err := exec.Command("consul", "version").CombinedOutput()
 	if err != nil {
@@ -24,7 +26,8 @@ func RequireConsul(t *testing.T) {
 	}
 }
 
-// RequireVault skips tests unless a Vault binary is available on $PATH.
+// RequireVault skips tests unless:
+// - "vault" executable is detected on $PATH
 func RequireVault(t *testing.T) {
 	_, err := exec.Command("vault", "version").CombinedOutput()
 	if err != nil {
@@ -32,19 +35,43 @@ func RequireVault(t *testing.T) {
 	}
 }
 
+// ExecCompatible skips tests unless:
+// - running as root
+// - running on Linux
+// - support for cgroups is detected
 func ExecCompatible(t *testing.T) {
 	if runtime.GOOS != "linux" || syscall.Geteuid() != 0 {
-		t.Skip("Test only available running as root on linux")
+		t.Skip("Test requires root on Linux")
 	}
-	CgroupCompatible(t)
+
+	if !cgroupCompatible(t) {
+		t.Skip("Test requires cgroup support")
+	}
 }
 
+// JavaCompatible skips tests unless:
+// - "java" executable is detected on $PATH
+// - running as root
+// - running on Linux
+// - support for cgroups is detected
 func JavaCompatible(t *testing.T) {
-	if runtime.GOOS == "linux" && syscall.Geteuid() != 0 {
-		t.Skip("Test only available when running as root on linux")
+	_, err := exec.Command("java", "-version").CombinedOutput()
+	if err != nil {
+		t.Skipf("Test requires Java: %v", err)
+	}
+
+	if runtime.GOOS == "linux" || syscall.Geteuid() != 0 {
+		t.Skip("Test requires root on Linux")
+	}
+
+	if !cgroupCompatible(t) {
+		t.Skip("Test requires cgroup support")
 	}
 }
 
+// QemuCompatible skips tests unless:
+// - "qemu-system-x86_64" executable is detected on $PATH (!windows)
+// - "qemu-img" executable is detected on on $PATH (windows)
 func QemuCompatible(t *testing.T) {
 	// Check if qemu exists
 	bin := "qemu-system-x86_64"
@@ -53,23 +80,64 @@ func QemuCompatible(t *testing.T) {
 	}
 	_, err := exec.Command(bin, "--version").CombinedOutput()
 	if err != nil {
-		t.Skip("Must have Qemu installed for Qemu specific tests to run")
+		t.Skipf("Test requires QEMU (%s)", bin)
 	}
 }
 
-func CgroupCompatible(t *testing.T) {
-	mount, err := cgutil.FindCgroupMountpointDir()
-	if err != nil || mount == "" {
-		t.Skipf("Failed to find cgroup mount: %v %v", mount, err)
+func cgroupCompatible(t *testing.T) bool {
+	return cgroupV1Compatible(t) || cgroupV2Compatible(t)
+}
+
+// CgroupV1Compatible skips tests unless:
+// - cgroup.v1 mount point is detected
+func CgroupV1Compatible(t *testing.T) {
+	if !cgroupV1Compatible(t) {
+		t.Skipf("Test requires cgroup.v1 support")
 	}
 }
 
+func cgroupV1Compatible(t *testing.T) bool {
+	if cgroupV2Compatible(t) {
+		t.Log("No cgroup.v1 mount point: running in cgroup.v2 mode")
+		return false
+	}
+	mount, err := cgroups.GetCgroupMounts(false)
+	if err != nil {
+		t.Logf("Unable to detect cgroup.v1 mount point: %v", err)
+		return false
+	}
+	if len(mount) == 0 {
+		t.Logf("No cgroup.v1 mount point: empty path")
+		return false
+	}
+	return true
+}
+
+// CgroupV2Compatible skips tests unless:
+// - cgroup.v2 unified mode is detected
+func CgroupV2Compatible(t *testing.T) {
+	if !cgroupV2Compatible(t) {
+		t.Skip("Test requires cgroup.v2 support")
+	}
+}
+
+func cgroupV2Compatible(t *testing.T) bool {
+	if cgroups.IsCgroup2UnifiedMode() {
+		return true
+	}
+	t.Logf("No cgroup.v2 unified mode support")
+	return false
+}
+
+// MountCompatible skips tests unless:
+// - not running as windows
+// - running as root
 func MountCompatible(t *testing.T) {
 	if runtime.GOOS == "windows" {
-		t.Skip("Windows does not support mount")
+		t.Skip("Test requires not using Windows")
 	}
 
 	if syscall.Geteuid() != 0 {
-		t.Skip("Must be root to run test")
+		t.Skip("Test requires root")
 	}
 }

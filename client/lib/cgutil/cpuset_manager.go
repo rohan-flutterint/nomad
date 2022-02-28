@@ -8,7 +8,7 @@ import (
 )
 
 // CpusetManager is used to setup cpuset cgroups for each task. A pool of shared cpus is managed for
-// tasks which don't require any reserved cores and a cgroup is managed seperetly for each task which
+// tasks which don't require any reserved cores and a cgroup is managed secretly for each task which
 // require reserved cores.
 type CpusetManager interface {
 	// Init should be called before any tasks are managed to ensure the cgroup parent exists and
@@ -26,6 +26,22 @@ type CpusetManager interface {
 	CgroupPathFor(allocID, taskName string) CgroupPathGetter
 }
 
+type NoopCpusetManager struct{}
+
+func (n NoopCpusetManager) Init() error {
+	return nil
+}
+
+func (n NoopCpusetManager) AddAlloc(alloc *structs.Allocation) {
+}
+
+func (n NoopCpusetManager) RemoveAlloc(allocID string) {
+}
+
+func (n NoopCpusetManager) CgroupPathFor(allocID, task string) CgroupPathGetter {
+	return func(context.Context) (string, error) { return "", nil }
+}
+
 // CgroupPathGetter is a function which returns the cgroup path and any error which ocured during cgroup initialization.
 // It should block until the cgroup has been created or an error is reported
 type CgroupPathGetter func(context.Context) (path string, err error)
@@ -37,20 +53,13 @@ type TaskCgroupInfo struct {
 	Error              error
 }
 
-func NoopCpusetManager() CpusetManager { return noopCpusetManager{} }
-
-type noopCpusetManager struct{}
-
-func (n noopCpusetManager) Init() error {
-	return nil
+func getCPUsFromCgroupV2(group string) ([]uint16, error) {
+	panic("implement me")
 }
 
-func (n noopCpusetManager) AddAlloc(alloc *structs.Allocation) {
-}
-
-func (n noopCpusetManager) RemoveAlloc(allocID string) {
-}
-
-func (n noopCpusetManager) CgroupPathFor(allocID, task string) CgroupPathGetter {
-	return func(context.Context) (string, error) { return "", nil }
+func getParentV2(parent string) string {
+	if parent == "" {
+		return DefaultCgroupV2Parent
+	}
+	return parent
 }

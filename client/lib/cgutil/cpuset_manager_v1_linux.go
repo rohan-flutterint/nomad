@@ -10,21 +10,26 @@ import (
 	"sync"
 	"time"
 
-	"github.com/opencontainers/runc/libcontainer/cgroups"
-	cgroupFs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
-	"github.com/opencontainers/runc/libcontainer/cgroups/fscommon"
-	"github.com/opencontainers/runc/libcontainer/configs"
-
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/lib/cpuset"
 	"github.com/hashicorp/nomad/nomad/structs"
+	"github.com/opencontainers/runc/libcontainer/cgroups"
+	"github.com/opencontainers/runc/libcontainer/cgroups/fs"
+	"github.com/opencontainers/runc/libcontainer/configs"
 )
 
-func NewCpusetManager(cgroupParent string, logger hclog.Logger) CpusetManager {
+const (
+	DefaultCgroupV1Parent    = "/nomad"
+	SharedCpusetCgroupName   = "shared"
+	ReservedCpusetCgroupName = "reserved"
+)
+
+// NewCpusetManagerV1 creates a  CpusetManager compatible with cgroups.v1
+func NewCpusetManagerV1(cgroupParent string, logger hclog.Logger) CpusetManager {
 	if cgroupParent == "" {
-		cgroupParent = DefaultCgroupParent
+		cgroupParent = DefaultCgroupV1Parent
 	}
-	return &cpusetManager{
+	return &cpusetManagerV1{
 		cgroupParent: cgroupParent,
 		cgroupInfo:   map[string]allocTaskCgroupInfo{},
 		logger:       logger,
@@ -35,7 +40,7 @@ var (
 	cpusetReconcileInterval = 30 * time.Second
 )
 
-type cpusetManager struct {
+type cpusetManagerV1 struct {
 	// cgroupParent relative to the cgroup root. ex. '/nomad'
 	cgroupParent string
 	// cgroupParentPath is the absolute path to the cgroup parent.
@@ -53,7 +58,7 @@ type cpusetManager struct {
 	logger   hclog.Logger
 }
 
-func (c *cpusetManager) AddAlloc(alloc *structs.Allocation) {
+func (c *cpusetManagerV1) AddAlloc(alloc *structs.Allocation) {
 	if alloc == nil || alloc.AllocatedResources == nil {
 		return
 	}
@@ -77,14 +82,14 @@ func (c *cpusetManager) AddAlloc(alloc *structs.Allocation) {
 	go c.signalReconcile()
 }
 
-func (c *cpusetManager) RemoveAlloc(allocID string) {
+func (c *cpusetManagerV1) RemoveAlloc(allocID string) {
 	c.mu.Lock()
 	delete(c.cgroupInfo, allocID)
 	c.mu.Unlock()
 	go c.signalReconcile()
 }
 
-func (c *cpusetManager) CgroupPathFor(allocID, task string) CgroupPathGetter {
+func (c *cpusetManagerV1) CgroupPathFor(allocID, task string) CgroupPathGetter {
 	return func(ctx context.Context) (string, error) {
 		c.mu.Lock()
 		allocInfo, ok := c.cgroupInfo[allocID]
@@ -124,7 +129,7 @@ type allocTaskCgroupInfo map[string]*TaskCgroupInfo
 // Init checks that the cgroup parent and expected child cgroups have been created
 // If the cgroup parent is set to /nomad then this will ensure that the /nomad/shared
 // cgroup is initialized.
-func (c *cpusetManager) Init() error {
+func (c *cpusetManagerV1) Init() error {
 	cgroupParentPath, err := getCgroupPathHelper("cpuset", c.cgroupParent)
 	if err != nil {
 		return err
@@ -155,7 +160,7 @@ func (c *cpusetManager) Init() error {
 		return err
 	}
 
-	if err := fscommon.WriteFile(filepath.Join(cgroupParentPath, ReservedCpusetCgroupName), "cpuset.mems", parentMems); err != nil {
+	if err := cgroups.WriteFile(filepath.Join(cgroupParentPath, ReservedCpusetCgroupName), "cpuset.mems", parentMems); err != nil {
 		return err
 	}
 
@@ -168,7 +173,7 @@ func (c *cpusetManager) Init() error {
 	return nil
 }
 
-func (c *cpusetManager) reconcileLoop() {
+func (c *cpusetManagerV1) reconcileLoop() {
 	timer := time.NewTimer(0)
 	if !timer.Stop() {
 		<-timer.C
@@ -189,7 +194,7 @@ func (c *cpusetManager) reconcileLoop() {
 	}
 }
 
-func (c *cpusetManager) reconcileCpusets() {
+func (c *cpusetManagerV1) reconcileCpusets() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	sharedCpuset := cpuset.New(c.parentCpuset.ToSlice()...)
@@ -246,7 +251,7 @@ func (c *cpusetManager) reconcileCpusets() {
 			info.Error = err
 			continue
 		}
-		if err := fscommon.WriteFile(info.CgroupPath, "cpuset.mems", parentMems); err != nil {
+		if err := cgroups.WriteFile(info.CgroupPath, "cpuset.mems", parentMems); err != nil {
 			c.logger.Error("failed to write cgroup cpuset.mems setting for task", "path", info.CgroupPath, "mems", parentMems, "error", err)
 			info.Error = err
 			continue
@@ -260,30 +265,30 @@ func (c *cpusetManager) reconcileCpusets() {
 }
 
 // setCgroupCpusetCPUs will compare an existing cpuset.cpus value with an expected value, overwriting the existing if different
-// must hold a lock on cpusetManager.mu before calling
-func (_ *cpusetManager) setCgroupCpusetCPUs(path, cpus string) error {
-	currentCpusRaw, err := fscommon.ReadFile(path, "cpuset.cpus")
+// must hold a lock on cpusetManagerV1.mu before calling
+func (_ *cpusetManagerV1) setCgroupCpusetCPUs(path, cpus string) error {
+	currentCpusRaw, err := cgroups.ReadFile(path, "cpuset.cpus")
 	if err != nil {
 		return err
 	}
 
 	if cpus != strings.TrimSpace(currentCpusRaw) {
-		if err := fscommon.WriteFile(path, "cpuset.cpus", cpus); err != nil {
+		if err := cgroups.WriteFile(path, "cpuset.cpus", cpus); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *cpusetManager) signalReconcile() {
+func (c *cpusetManagerV1) signalReconcile() {
 	select {
 	case c.signalCh <- struct{}{}:
 	case <-c.doneCh:
 	}
 }
 
-func (c *cpusetManager) getCpuset(group string) (cpuset.CPUSet, error) {
-	man := cgroupFs.NewManager(
+func (c *cpusetManagerV1) getCpuset(group string) (cpuset.CPUSet, error) {
+	man := fs.NewManager(
 		&configs.Cgroup{
 			Path: filepath.Join(c.cgroupParent, group),
 		},
@@ -297,15 +302,36 @@ func (c *cpusetManager) getCpuset(group string) (cpuset.CPUSet, error) {
 	return cpuset.New(stats.CPUSetStats.CPUs...), nil
 }
 
-func (c *cpusetManager) getCgroupPathsForTask(allocID, task string) (absolute, relative string) {
+func (c *cpusetManagerV1) getCgroupPathsForTask(allocID, task string) (absolute, relative string) {
 	return filepath.Join(c.reservedCpusetPath(), fmt.Sprintf("%s-%s", allocID, task)),
 		filepath.Join(c.cgroupParent, ReservedCpusetCgroupName, fmt.Sprintf("%s-%s", allocID, task))
 }
 
-func (c *cpusetManager) sharedCpusetPath() string {
+func (c *cpusetManagerV1) sharedCpusetPath() string {
 	return filepath.Join(c.cgroupParentPath, SharedCpusetCgroupName)
 }
 
-func (c *cpusetManager) reservedCpusetPath() string {
+func (c *cpusetManagerV1) reservedCpusetPath() string {
 	return filepath.Join(c.cgroupParentPath, ReservedCpusetCgroupName)
+}
+
+func getCPUsFromCgroupV1(group string) ([]uint16, error) {
+	cgroupPath, err := getCgroupPathHelper("cpuset", group)
+	if err != nil {
+		return nil, err
+	}
+
+	man := fs.NewManager(&configs.Cgroup{Path: group}, map[string]string{"cpuset": cgroupPath}, false)
+	stats, err := man.GetStats()
+	if err != nil {
+		return nil, err
+	}
+	return stats.CPUSetStats.CPUs, nil
+}
+
+func getParentV1(parent string) string {
+	if parent == "" {
+		return DefaultCgroupV1Parent
+	}
+	return parent
 }
