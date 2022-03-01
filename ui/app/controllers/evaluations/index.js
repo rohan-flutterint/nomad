@@ -6,7 +6,7 @@ import { inject as service } from '@ember/service';
 export default class EvaluationsController extends Controller {
   @service userSettings;
 
-  queryParams = ['nextToken', 'pageSize', 'status'];
+  queryParams = ['nextToken', 'pageSize', 'status', 'triggeredBy'];
 
   get shouldDisableNext() {
     return !this.model.meta?.nextToken;
@@ -27,10 +27,32 @@ export default class EvaluationsController extends Controller {
     ];
   }
 
+  get optionsTriggeredBy() {
+    return [
+      { key: null, label: 'All' },
+      { key: 'job-register', label: 'Job Register' },
+      { key: 'job-deregister', label: 'Job Deregister' },
+      { key: 'periodic-job', label: 'Periodic Job' },
+      { key: 'node-drain', label: 'Node Drain' },
+      { key: 'node-update', label: 'Node Update' },
+      { key: 'alloc-stop', label: 'Allocation Stop' },
+      { key: 'scheduled', label: 'Scheduled' },
+      { key: 'rolling-update', label: 'Rolling Update' },
+      { key: 'deployment-watcher', label: 'Deployment Watcher' },
+      { key: 'failed-follow-up', label: 'Failed Follow Up' },
+      { key: 'max-plan-attempts', label: 'Max Plan Attempts' },
+      { key: 'alloc-failure', label: 'Allocation Failure' },
+      { key: 'queued-allocs', label: 'Queued Allocations' },
+      { key: 'preemption', label: 'Preemption' },
+      { key: 'job-scaling', label: 'Job Scalling' },
+    ];
+  }
+
   @tracked pageSize = this.userSettings.pageSize;
   @tracked nextToken = null;
   @tracked previousTokens = [];
   @tracked status = null;
+  @tracked triggeredBy = null;
 
   @action
   onChange(newPageSize) {
@@ -58,9 +80,9 @@ export default class EvaluationsController extends Controller {
   }
 
   @action
-  setStatus(selection) {
+  setQueryParam(qp, selection) {
     this._resetTokens();
-    this.status = selection;
+    this[qp] = selection;
   }
 
   _resetTokens() {

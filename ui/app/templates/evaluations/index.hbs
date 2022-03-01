@@ -7,7 +7,14 @@
         @label="Status"
         @options={{this.optionsEvaluationsStatus}}
         @selection={{this.status}}
-        @onSelect={{action this.setStatus}}
+        @onSelect={{action this.setQueryParam "status"}}
+      />
+      <SingleSelectDropdown
+        data-test-evaluation-status-facet
+        @label="Triggered By"
+        @options={{this.optionsTriggeredBy}}
+        @selection={{this.triggeredBy}}
+        @onSelect={{action this.setQueryParam "triggeredBy"}}
       />
     </div>
   </div>
@@ -88,7 +95,12 @@
     <div class="table-foot with-padding">
       <PageSizeSelect data-test-per-page @onChange={{this.onChange}} />
       <div>
-        <button class="button" data-test-eval-refresh type="button" {{on "click" this.refresh}}>
+        <button
+          class="button"
+          data-test-eval-refresh
+          type="button"
+          {{on "click" this.refresh}}
+        >
           {{x-icon "refresh-default" class="is-text"}}
           Refresh
         </button>
@@ -115,7 +127,10 @@
   {{else}}
     <div class="boxed-section-body">
       <div class="empty-message" data-test-empty-evaluations-list>
-        <h3 class="empty-message-headline" data-test-empty-evalations-list-headline>
+        <h3
+          class="empty-message-headline"
+          data-test-empty-evalations-list-headline
+        >
           No Matches
         </h3>
         <p class="empty-message-body">
