@@ -405,21 +405,12 @@ func (c *ClientTemplateConfig) Merge(b *ClientTemplateConfig) *ClientTemplateCon
 
 	result.DisableSandbox = b.DisableSandbox
 
-	// Maintain backward compatibility for older clients
-	if len(b.FunctionBlacklist) > 0 {
-		for _, fn := range b.FunctionBlacklist {
-			if !helper.SliceStringContains(result.FunctionBlacklist, fn) {
-				result.FunctionBlacklist = append(result.FunctionBlacklist, fn)
-			}
-		}
+	if b.FunctionBlacklist != nil {
+		result.FunctionBlacklist = b.FunctionBlacklist
 	}
 
-	if len(b.FunctionDenylist) > 0 {
-		for _, fn := range b.FunctionDenylist {
-			if !helper.SliceStringContains(result.FunctionDenylist, fn) {
-				result.FunctionDenylist = append(result.FunctionDenylist, fn)
-			}
-		}
+	if b.FunctionDenylist != nil {
+		result.FunctionDenylist = b.FunctionDenylist
 	}
 
 	if b.MaxStale != nil {
@@ -451,8 +442,8 @@ func (c *ClientTemplateConfig) IsEmpty() bool {
 	}
 
 	return !c.DisableSandbox &&
-		len(c.FunctionDenylist) == 0 &&
-		len(c.FunctionBlacklist) == 0 &&
+		c.FunctionDenylist == nil &&
+		c.FunctionBlacklist == nil &&
 		c.BlockQueryWaitTime == nil &&
 		c.BlockQueryWaitTimeHCL == "" &&
 		c.MaxStale == nil &&

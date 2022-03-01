@@ -1413,39 +1413,79 @@ func TestConfig_LoadConsulTemplateConfig(t *testing.T) {
 	require.Equal(t, 20*time.Second, *templateConfig.VaultRetry.MaxBackoff)
 }
 
-func TestConfig_LoadConsulTemplateBasic(t *testing.T) {
-	defaultConfig := DefaultConfig()
+func TestConfig_LoadConsulTemplate_FunctionDenylist(t *testing.T) {
+	cases := []struct {
+		File     string
+		Expected *client.ClientTemplateConfig
+	}{
+		{
+			"test-resources/minimal_client.hcl",
+			nil,
+		},
+		{
+			"test-resources/client_with_basic_template.json",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   true,
+				FunctionDenylist: []string{},
+			},
+		},
+		{
+			"test-resources/client_with_basic_template.hcl",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   true,
+				FunctionDenylist: []string{},
+			},
+		},
+		{
+			"test-resources/client_with_function_denylist.hcl",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   false,
+				FunctionDenylist: []string{"foo"},
+			},
+		},
+		{
+			"test-resources/client_with_function_denylist_empty.hcl",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   false,
+				FunctionDenylist: []string{},
+			},
+		},
+		{
+			"test-resources/client_with_function_denylist_empty_string.hcl",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   true,
+				FunctionDenylist: []string{""},
+			},
+		},
+		{
+			"test-resources/client_with_function_denylist_empty_string.json",
+			&client.ClientTemplateConfig{
+				DisableSandbox:   true,
+				FunctionDenylist: []string{""},
+			},
+		},
+		{
+			"test-resources/client_with_function_denylist_nil.hcl",
+			&client.ClientTemplateConfig{
+				DisableSandbox: true,
+			},
+		},
+		{
+			"test-resources/client_with_empty_template.hcl",
+			nil,
+		},
+	}
 
-	// hcl
-	agentConfig, err := LoadConfig("test-resources/client_with_basic_template.hcl")
-	require.NoError(t, err)
-	require.NotNil(t, agentConfig.Client.TemplateConfig)
+	for _, tc := range cases {
+		t.Run(tc.File, func(t *testing.T) {
+			agentConfig, err := LoadConfig(tc.File)
 
-	agentConfig = defaultConfig.Merge(agentConfig)
+			require.NoError(t, err)
 
-	clientAgent := Agent{config: agentConfig}
-	clientConfig, err := clientAgent.clientConfig()
-	require.NoError(t, err)
-
-	templateConfig := clientConfig.TemplateConfig
-	require.NotNil(t, templateConfig)
-	require.True(t, templateConfig.DisableSandbox)
-	require.Len(t, templateConfig.FunctionDenylist, 1)
-
-	// json
-	agentConfig, err = LoadConfig("test-resources/client_with_basic_template.json")
-	require.NoError(t, err)
-
-	agentConfig = defaultConfig.Merge(agentConfig)
-
-	clientAgent = Agent{config: agentConfig}
-	clientConfig, err = clientAgent.clientConfig()
-	require.NoError(t, err)
-
-	templateConfig = clientConfig.TemplateConfig
-	require.NotNil(t, templateConfig)
-	require.True(t, templateConfig.DisableSandbox)
-	require.Len(t, templateConfig.FunctionDenylist, 1)
+			templateConfig := agentConfig.Client.TemplateConfig
+			require.Equal(t, tc.Expected, templateConfig)
+		})
+	}
 }
 
 func TestParseMultipleIPTemplates(t *testing.T) {

@@ -1697,10 +1697,7 @@ func (a *ClientConfig) Merge(b *ClientConfig) *ClientConfig {
 		result.DisableRemoteExec = b.DisableRemoteExec
 	}
 
-	if result.TemplateConfig == nil && b.TemplateConfig != nil {
-		templateConfig := *b.TemplateConfig
-		result.TemplateConfig = &templateConfig
-	} else if b.TemplateConfig != nil {
+	if b.TemplateConfig != nil {
 		result.TemplateConfig = result.TemplateConfig.Merge(b.TemplateConfig)
 	}
 
