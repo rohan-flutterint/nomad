@@ -94,19 +94,17 @@ jobs:
           yarn install --network-timeout 300000
           yarn --verbose run build
           cd ..
+      
+      - name: Build generate-all
+        run: make generate-all
 
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           LD_FLAGS: ${{ needs.set-ld-flags.outputs.ldflags }}
-          LOCAL_PACKAGES: ${{ shell go list ./... }}
           CGO_ENABLED: 0
         run: |
-          go generate "${{ env.LOCAL_PACKAGES }}"
-          buf --config tools/buf/buf.yaml --template tools/buf/buf.gen.yaml generate
-          mkdir command/assets 
-          go-bindata-assetfs -pkg command -o command/job_init.bindata_assetfs.go ./command/assets/...
           mkdir -p dist out
           go build -o dist/ \
           -ldflags "${{ env.LD_FLAGS }}" \
@@ -153,6 +151,9 @@ jobs:
           yarn install --network-timeout 300000
           yarn --verbose run build
           cd ..
+
+      - name: Build generate-all
+        run: make generate-all
 
       - name: Build
         env:
@@ -242,6 +243,9 @@ jobs:
           yarn install --network-timeout 300000
           yarn --verbose run build
           cd ..
+      
+      - name: Build generate-all
+        run: make generate-all
 
       - name: Build
         env:
