@@ -100,14 +100,14 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
           LD_FLAGS: ${{ needs.set-ld-flags.outputs.ldflags }}
+          LOCAL_PACKAGES: ${{ shell go list ./... }}
           CGO_ENABLED: 0
         run: |
-          mkdir -p dist out
-          LOCAL_PACKAGES = $(shell go list ./...)
-          go generate $(LOCAL_PACKAGES)
+          go generate "${{ env.LOCAL_PACKAGES }}"
           buf --config tools/buf/buf.yaml --template tools/buf/buf.gen.yaml generate
           mkdir command/assets 
           go-bindata-assetfs -pkg command -o command/job_init.bindata_assetfs.go ./command/assets/...
+          mkdir -p dist out
           go build -o dist/ \
           -ldflags "${{ env.LD_FLAGS }}" \
           -tags "${{ env.GO_TAGS }}"
@@ -162,11 +162,6 @@ jobs:
           CGO_ENABLED: 0
         run: |
           mkdir -p dist out
-          LOCAL_PACKAGES = $(shell go list ./...)
-          go generate $(LOCAL_PACKAGES)
-          buf --config tools/buf/buf.yaml --template tools/buf/buf.gen.yaml generate
-          mkdir command/assets 
-          go-bindata-assetfs -pkg command -o command/job_init.bindata_assetfs.go ./command/assets/...
           go build -o dist/ \
           -ldflags "${{ env.LD_FLAGS }}" \
           -tags "${{ env.GO_TAGS }}"
