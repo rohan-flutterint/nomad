@@ -124,6 +124,7 @@ func (c *cpusetManagerV1) CgroupPathFor(allocID, task string) CgroupPathGetter {
 
 }
 
+// task name -> task cgroup info
 type allocTaskCgroupInfo map[string]*TaskCgroupInfo
 
 // Init checks that the cgroup parent and expected child cgroups have been created

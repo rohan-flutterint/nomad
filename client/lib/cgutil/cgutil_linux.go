@@ -39,6 +39,8 @@ func getCpusetSubsystemSettings(parent string) (cpus, mems string, err error) {
 // are created and populated with the proper cpus and mems files copied
 // from their respective parent. It does that recursively, starting from
 // the top of the cpuset hierarchy (i.e. cpuset cgroup mount point).
+//
+// todo: v1 only?
 func cpusetEnsureParent(current string) error {
 	var st unix.Statfs_t
 
@@ -64,6 +66,8 @@ func cpusetEnsureParent(current string) error {
 
 // cpusetCopyIfNeeded copies the cpuset.cpus and cpuset.mems from the parent
 // directory to the current directory if the file's contents are 0
+//
+// todo: v1 only?
 func cpusetCopyIfNeeded(current, parent string) error {
 	currentCpus, currentMems, err := getCpusetSubsystemSettings(current)
 	if err != nil {

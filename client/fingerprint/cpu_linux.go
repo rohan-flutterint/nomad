@@ -5,5 +5,8 @@ import (
 )
 
 func (f *CPUFingerprint) deriveReservableCores(req *FingerprintRequest) ([]uint16, error) {
+	// The cpuset cgroup manager is initialized (on linux), but not accessible from
+	// the finger-printer. So we reach in and grab the information manually, with
+	// the assumption that the hierarchy is already setup.
 	return cgutil.GetCPUsFromCgroup(req.Config.CgroupParent)
 }
