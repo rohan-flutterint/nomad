@@ -4,9 +4,10 @@ import { tracked } from '@glimmer/tracking';
 import { inject as service } from '@ember/service';
 
 export default class EvaluationsController extends Controller {
+  @service store;
   @service userSettings;
 
-  queryParams = ['nextToken', 'pageSize', 'status', 'triggeredBy'];
+  queryParams = ['nextToken', 'pageSize', 'status', 'triggeredBy', 'namespace'];
 
   get shouldDisableNext() {
     return !this.model.meta?.nextToken;
@@ -48,11 +49,27 @@ export default class EvaluationsController extends Controller {
     ];
   }
 
+  get optionsNamespaces() {
+    const namespaces = this.store.peekAll('namespace').map((namespace) => ({
+      key: namespace.name,
+      label: namespace.name,
+    }));
+
+    // Create default namespace selection
+    namespaces.unshift({
+      key: null,
+      label: 'All (*)',
+    });
+
+    return namespaces;
+  }
+
   @tracked pageSize = this.userSettings.pageSize;
   @tracked nextToken = null;
   @tracked previousTokens = [];
   @tracked status = null;
   @tracked triggeredBy = null;
+  @tracked namespace = '*';
 
   @action
   onChange(newPageSize) {
