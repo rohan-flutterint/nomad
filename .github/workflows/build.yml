@@ -283,9 +283,6 @@ jobs:
       - name: Build static assets
         run: make static-assets
       
-      - name: Build generate-all
-        run: make generate-all
-
       - name: Build
         env:
           GOOS: ${{ matrix.goos }}
