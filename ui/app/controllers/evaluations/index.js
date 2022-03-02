@@ -3,11 +3,19 @@ import { action } from '@ember/object';
 import { tracked } from '@glimmer/tracking';
 import { inject as service } from '@ember/service';
 
+const ALL_NAMESPACE_WILDCARD = '*';
+
 export default class EvaluationsController extends Controller {
   @service store;
   @service userSettings;
 
-  queryParams = ['nextToken', 'pageSize', 'status', 'triggeredBy', 'namespace'];
+  queryParams = [
+    'nextToken',
+    'pageSize',
+    'status',
+    'triggeredBy',
+    'qpNamespace',
+  ];
 
   get shouldDisableNext() {
     return !this.model.meta?.nextToken;
@@ -57,7 +65,7 @@ export default class EvaluationsController extends Controller {
 
     // Create default namespace selection
     namespaces.unshift({
-      key: null,
+      key: ALL_NAMESPACE_WILDCARD,
       label: 'All (*)',
     });
 
@@ -69,7 +77,7 @@ export default class EvaluationsController extends Controller {
   @tracked previousTokens = [];
   @tracked status = null;
   @tracked triggeredBy = null;
-  @tracked namespace = '*';
+  @tracked qpNamespace = ALL_NAMESPACE_WILDCARD;
 
   @action
   onChange(newPageSize) {
