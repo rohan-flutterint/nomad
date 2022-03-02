@@ -13,14 +13,14 @@ import (
 // CreateCPUSetManager creates a V1 or V2 CpusetManager depending on system configuration.
 func CreateCPUSetManager(parent string, logger hclog.Logger) CpusetManager {
 	if cgroups.IsCgroup2UnifiedMode() {
-		return NewCpusetManagerV2(getParentV2(parent), logger.Named("cpuset.v2"))
+		return NewCpusetManagerV2(v2GetParent(parent), logger.Named("cpuset.v2"))
 	}
 	return NewCpusetManagerV1(getParentV1(parent), logger.Named("cpuset.v1"))
 }
 
 func GetCPUsFromCgroup(group string) ([]uint16, error) {
 	if cgroups.IsCgroup2UnifiedMode() {
-		return getCPUsFromCgroupV2(getParentV2(group))
+		return v2GetCPUsFromCgroup(v2GetParent(group))
 	}
 	return getCPUsFromCgroupV1(getParentV1(group))
 }

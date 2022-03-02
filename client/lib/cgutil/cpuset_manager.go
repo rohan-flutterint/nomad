@@ -2,11 +2,9 @@ package cgutil
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/hashicorp/nomad/lib/cpuset"
 	"github.com/hashicorp/nomad/nomad/structs"
-	"github.com/opencontainers/runc/libcontainer/cgroups"
 )
 
 // CpusetManager is used to setup cpuset cgroups for each task. A pool of shared cpus is managed for
@@ -53,34 +51,4 @@ type TaskCgroupInfo struct {
 	RelativeCgroupPath string
 	Cpuset             cpuset.CPUSet
 	Error              error
-}
-
-func getCPUsFromCgroupV2(group string) ([]uint16, error) {
-	path := rootedV2(group)
-
-	fmt.Println("SH getCPUsFromCgroupV2, group:", group, "path:", path)
-
-	effective, err := cgroups.ReadFile(path, "cpuset.cpus.effective")
-	if err != nil {
-		fmt.Println("A err:", err)
-		return nil, err
-	}
-
-	fmt.Println("B effective:", effective)
-	set, err := cpuset.Parse(effective)
-	if err != nil {
-		fmt.Println("C: parse:", err)
-		return nil, err
-	}
-
-	fmt.Println("D: set:", set)
-
-	return set.ToSlice(), nil
-}
-
-func getParentV2(parent string) string {
-	if parent == "" {
-		return DefaultCgroupV2Parent
-	}
-	return parent
 }
