@@ -84,7 +84,7 @@ jobs:
       - name: Install project dependencies
         run: |
           go install github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs@38087fe
-          go install github.com/hashicorp/go-bindata/go-bindata@234c15e
+          go install github.com/hashicorp/go-bindata/go-bindata@bf7910a
       
       - name: Build generate-all
         run: make generate-all
@@ -149,7 +149,7 @@ jobs:
       - name: Install project dependencies
         run: |
           go install github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs@38087fe
-          go install github.com/hashicorp/go-bindata/go-bindata@234c15e
+          go install github.com/hashicorp/go-bindata/go-bindata@bf7910a
       
       - name: Build generate-all
         run: make generate-all
@@ -249,7 +249,7 @@ jobs:
       - name: Install project dependencies
         run: |
           go install github.com/elazarl/go-bindata-assetfs/go-bindata-assetfs@38087fe
-          go install github.com/hashicorp/go-bindata/go-bindata@234c15e
+          go install github.com/hashicorp/go-bindata/go-bindata@bf7910a
       
       - name: Build generate-all
         run: make generate-all
