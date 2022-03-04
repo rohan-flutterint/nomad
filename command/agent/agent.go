@@ -894,6 +894,9 @@ func (a *Agent) setupClient() error {
 		return fmt.Errorf("client setup failed: %v", err)
 	}
 
+	// todo remove
+	fmt.Println("SH client.conf reservable_cores:", conf.ReservableCores)
+
 	// Reserve some ports for the plugins if we are on Windows
 	if runtime.GOOS == "windows" {
 		if err := a.reservePortsForClient(conf); err != nil {

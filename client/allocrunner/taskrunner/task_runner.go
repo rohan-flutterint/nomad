@@ -772,10 +772,12 @@ func (tr *TaskRunner) runDriver() error {
 
 	taskConfig := tr.buildTaskConfig()
 	if tr.cpusetCgroupPathGetter != nil {
+		fmt.Println("TaskRunner.runDriver, will wait for cpuset group")
 		cpusetCgroupPath, err := tr.cpusetCgroupPathGetter(tr.killCtx)
 		if err != nil {
 			return err
 		}
+		fmt.Println("TaskRunner.runDriver, got cpuset group:", cpusetCgroupPath)
 		taskConfig.Resources.LinuxResources.CpusetCgroupPath = cpusetCgroupPath
 	}
 

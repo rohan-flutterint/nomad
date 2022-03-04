@@ -359,6 +359,8 @@ func (d *Driver) buildFingerprint() *drivers.Fingerprint {
 		return fp
 	}
 
+	fmt.Println("SH exec mount:", mount)
+
 	if mount == "" {
 		fp.Health = drivers.HealthStateUnhealthy
 		fp.HealthDescription = drivers.CgroupMountEmpty
@@ -498,7 +500,11 @@ func (d *Driver) StartTask(cfg *drivers.TaskConfig) (*drivers.TaskHandle, *drive
 		ModePID:          executor.IsolationMode(d.config.DefaultModePID, driverConfig.ModePID),
 		ModeIPC:          executor.IsolationMode(d.config.DefaultModeIPC, driverConfig.ModeIPC),
 		Capabilities:     caps,
+		AllocID:          cfg.AllocID,
+		Task:             cfg.Name,
 	}
+
+	fmt.Println("SH driver.StartTask, exec:", execCmd.Cmd)
 
 	ps, err := exec.Launch(execCmd)
 	if err != nil {

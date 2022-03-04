@@ -28,6 +28,17 @@ func New(cpus ...uint16) CPUSet {
 	return cpuset
 }
 
+// Copy returns a deep copy of CPUSet c.
+func (c CPUSet) Copy() CPUSet {
+	cpus := make(map[uint16]struct{}, len(c.cpus))
+	for k := range c.cpus {
+		cpus[k] = struct{}{}
+	}
+	return CPUSet{
+		cpus: cpus,
+	}
+}
+
 // String returns the cpuset as a comma delimited set of core values and ranged
 func (c CPUSet) String() string {
 	if c.Size() == 0 {
@@ -63,6 +74,11 @@ func (c CPUSet) String() string {
 // Size returns to the number of cpus contained in the CPUSet
 func (c CPUSet) Size() int {
 	return len(c.cpus)
+}
+
+// Empty returns whether any cpus are contained in the CPUSet.
+func (c CPUSet) Empty() bool {
+	return c.Size() <= 0
 }
 
 // ToSlice returns a sorted slice of uint16 CPU IDs contained in the CPUSet.

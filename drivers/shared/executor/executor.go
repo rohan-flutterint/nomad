@@ -154,6 +154,12 @@ type ExecCommand struct {
 
 	// Capabilities are the linux capabilities to be enabled by the task driver.
 	Capabilities []string
+
+	// AllocID the allocation ID for which this command is being executed.
+	AllocID string
+
+	// Task the task name for which this command is being executed.
+	Task string
 }
 
 // SetWriters sets the writer for the process stdout and stderr. This should
@@ -302,7 +308,10 @@ func (e *UniversalExecutor) Launch(command *ExecCommand) (*ProcessState, error) 
 
 	// Setup cgroups on linux
 	if e.commandCfg.ResourceLimits || e.commandCfg.BasicProcessCgroup {
-		if err := e.configureResourceContainer(os.Getpid()); err != nil {
+		pid := os.Getpid()
+		allocID := command.AllocID
+		taskName := command.Task
+		if err := e.configureResourceContainer(pid, allocID, taskName); err != nil {
 			return nil, err
 		}
 	}

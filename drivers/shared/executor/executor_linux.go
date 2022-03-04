@@ -19,6 +19,7 @@ import (
 	"github.com/hashicorp/consul-template/signals"
 	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/client/allocdir"
+	"github.com/hashicorp/nomad/client/lib/cgutil"
 	"github.com/hashicorp/nomad/client/stats"
 	cstructs "github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/drivers/shared/capabilities"
@@ -68,9 +69,20 @@ type LibcontainerExecutor struct {
 	userProc       *libcontainer.Process
 	userProcExited chan interface{}
 	exitState      *ProcessState
+
+	debug *os.File
 }
 
 func NewExecutorWithIsolation(logger hclog.Logger) Executor {
+	debug, err := os.OpenFile("/tmp/debug.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0655)
+	if err != nil {
+		panic(err)
+	}
+
+	dlog := hclog.New(&hclog.LoggerOptions{
+		Output: debug,
+		Name:   "exec",
+	})
 
 	logger = logger.Named("isolated_executor")
 	if err := shelpers.Init(); err != nil {
@@ -78,15 +90,20 @@ func NewExecutorWithIsolation(logger hclog.Logger) Executor {
 	}
 	return &LibcontainerExecutor{
 		id:             strings.ReplaceAll(uuid.Generate(), "-", "_"),
-		logger:         logger,
+		logger:         dlog,
 		totalCpuStats:  stats.NewCpuStats(),
 		userCpuStats:   stats.NewCpuStats(),
 		systemCpuStats: stats.NewCpuStats(),
 		pidCollector:   newPidCollector(logger),
+
+		debug: debug,
 	}
 }
 
 // Launch creates a new container in libcontainer and starts a new process with it
+//
+// BTW, logging and printing does nothing here, this is being running in a sub-process.
+// For debugging, try writing to a file.
 func (l *LibcontainerExecutor) Launch(command *ExecCommand) (*ProcessState, error) {
 	l.logger.Trace("preparing to launch command", "command", command.Cmd, "args", strings.Join(command.Args, " "))
 
@@ -110,6 +127,9 @@ func (l *LibcontainerExecutor) Launch(command *ExecCommand) (*ProcessState, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory: %v", err)
 	}
+
+	// FIND THIS
+	l.logger.Info("LibcontainerExecutor.Launch", "cmd", command.Cmd, "alloc_id", command.AllocID, "task", command.Task)
 
 	// A container groups processes under the same isolation enforcement
 	containerCfg, err := newLibcontainerConfig(command)
@@ -271,6 +291,10 @@ func (l *LibcontainerExecutor) wait() {
 // Shutdown stops all processes started and cleans up any resources
 // created (such as mountpoints, devices, etc).
 func (l *LibcontainerExecutor) Shutdown(signal string, grace time.Duration) error {
+	l.logger.Info("shutdown")
+	_ = l.debug.Sync()
+	_ = l.debug.Close()
+
 	if l.container == nil {
 		return nil
 	}
@@ -665,14 +689,30 @@ func configureIsolation(cfg *lconfigs.Config, command *ExecCommand) error {
 }
 
 func configureCgroups(cfg *lconfigs.Config, command *ExecCommand) error {
+	f, err := os.OpenFile("/tmp/cc.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer func() {
+		_ = f.Sync()
+		_ = f.Close()
+	}()
+
+	logger := hclog.New(&hclog.LoggerOptions{
+		Output: f,
+	})
+
+	id := cgutil.CgroupID(command.AllocID, command.Task)
+	logger.Info("configureCgroups", "id", id)
 
 	// If resources are not limited then manually create cgroups needed
 	if !command.ResourceLimits {
-		return configureBasicCgroups(cfg)
+		return cgutil.ConfigureBasicCgroups(id, cfg)
 	}
 
-	id := uuid.Generate()
-	cfg.Cgroups.Path = filepath.Join("/", defaultCgroupParent, id)
+	cfg.Cgroups.Path = filepath.Join("/", cgutil.GetCgroupParent(cfg.Cgroups.Parent), id)
+
+	fmt.Println("SH has cmd resource limits, not basic, id:", id, "cgroups.path:", cfg.Cgroups.Path)
 
 	if command.Resources == nil || command.Resources.NomadResources == nil {
 		return nil
@@ -712,28 +752,6 @@ func configureCgroups(cfg *lconfigs.Config, command *ExecCommand) error {
 		}
 	}
 
-	return nil
-}
-
-func configureBasicCgroups(cfg *lconfigs.Config) error {
-	id := uuid.Generate()
-
-	// Manually create freezer cgroup
-
-	subsystem := "freezer"
-
-	path, err := getCgroupPathHelper(subsystem, filepath.Join(defaultCgroupParent, id))
-	if err != nil {
-		return fmt.Errorf("failed to find %s cgroup mountpoint: %v", subsystem, err)
-	}
-
-	if err = os.MkdirAll(path, 0755); err != nil {
-		return err
-	}
-
-	cfg.Cgroups.Paths = map[string]string{
-		subsystem: path,
-	}
 	return nil
 }
 
@@ -888,6 +906,7 @@ func lookPathIn(path string, root string, bin string) (string, error) {
 }
 
 func newSetCPUSetCgroupHook(cgroupPath string) lconfigs.Hook {
+	fmt.Println("SH newSetCPUSetCgroupHook, cgroupPath:", cgroupPath)
 	return lconfigs.NewFunctionHook(func(state *specs.State) error {
 		return cgroups.WriteCgroupProc(cgroupPath, state.Pid)
 	})

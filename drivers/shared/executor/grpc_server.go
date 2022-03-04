@@ -20,6 +20,7 @@ type grpcExecutorServer struct {
 }
 
 func (s *grpcExecutorServer) Launch(ctx context.Context, req *proto.LaunchRequest) (*proto.LaunchResponse, error) {
+	fmt.Println("grpc.Launch, id:", req.AllocId, "task:", req.TaskName)
 	ps, err := s.impl.Launch(&ExecCommand{
 		Cmd:                req.Cmd,
 		Args:               req.Args,
@@ -38,6 +39,8 @@ func (s *grpcExecutorServer) Launch(ctx context.Context, req *proto.LaunchReques
 		ModePID:            req.DefaultPidMode,
 		ModeIPC:            req.DefaultIpcMode,
 		Capabilities:       req.Capabilities,
+		AllocID:            req.AllocId,
+		Task:               req.TaskName,
 	})
 
 	if err != nil {

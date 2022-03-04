@@ -8,10 +8,10 @@ import (
 )
 
 // CpusetManager is used to setup cpuset cgroups for each task. A pool of shared cpus is managed for
-// tasks which don't require any reserved cores and a cgroup is managed secretly for each task which
+// allocToInfo which don't require any reserved cores and a cgroup is managed secretly for each task which
 // require reserved cores.
 type CpusetManager interface {
-	// Init should be called before any tasks are managed to ensure the cgroup parent exists and
+	// Init should be called before any allocToInfo are managed to ensure the cgroup parent exists and
 	// check that proper permissions are granted to manage cgroups.
 	Init() error
 
@@ -42,8 +42,10 @@ func (n NoopCpusetManager) CgroupPathFor(allocID, task string) CgroupPathGetter 
 	return func(context.Context) (string, error) { return "", nil }
 }
 
-// CgroupPathGetter is a function which returns the cgroup path and any error which ocured during cgroup initialization.
-// It should block until the cgroup has been created or an error is reported
+// CgroupPathGetter is a function which returns the cgroup path and any error which
+// occurred during cgroup initialization.
+//
+// It should block until the cgroup has been created or an error is reported.
 type CgroupPathGetter func(context.Context) (path string, err error)
 
 type TaskCgroupInfo struct {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	multierror "github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/nomad/client/lib/cgutil"
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	cgroupFs "github.com/opencontainers/runc/libcontainer/cgroups/fs"
@@ -67,7 +68,7 @@ func setCmdUser(cmd *exec.Cmd, userid string) error {
 
 // configureResourceContainer configured the cgroups to be used to track pids
 // created by the executor
-func (e *UniversalExecutor) configureResourceContainer(pid int) error {
+func (e *UniversalExecutor) configureResourceContainer(pid int, allocID, task string) error {
 	cfg := &lconfigs.Config{
 		Cgroups: &lconfigs.Cgroup{
 			Resources: &lconfigs.Resources{},
@@ -77,8 +78,9 @@ func (e *UniversalExecutor) configureResourceContainer(pid int) error {
 		cfg.Cgroups.Resources.Devices = append(cfg.Cgroups.Resources.Devices, &device.Rule)
 	}
 
-	err := configureBasicCgroups(cfg)
-	if err != nil {
+	// need allocID and task name
+	cgroupID := cgutil.CgroupID(allocID, task)
+	if err := cgutil.ConfigureBasicCgroups(cgroupID, cfg); err != nil {
 		// Log this error to help diagnose cases where nomad is run with too few
 		// permissions, but don't return an error. There is no separate check for
 		// cgroup creation permissions, so this may be the happy path.
