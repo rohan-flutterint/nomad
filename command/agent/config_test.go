@@ -126,6 +126,7 @@ func TestConfig_Merge(t *testing.T) {
 				DiskMB:        10,
 				ReservedPorts: "1,10-30,55",
 			},
+			NativeServiceDiscovery: helper.BoolToPtr(false),
 		},
 		Server: &ServerConfig{
 			Enabled:                false,
@@ -310,10 +311,11 @@ func TestConfig_Merge(t *testing.T) {
 				DiskMB:        15,
 				ReservedPorts: "2,10-30,55",
 			},
-			GCInterval:            6 * time.Second,
-			GCParallelDestroys:    6,
-			GCDiskUsageThreshold:  71,
-			GCInodeUsageThreshold: 86,
+			GCInterval:             6 * time.Second,
+			GCParallelDestroys:     6,
+			GCDiskUsageThreshold:   71,
+			GCInodeUsageThreshold:  86,
+			NativeServiceDiscovery: helper.BoolToPtr(false),
 		},
 		Server: &ServerConfig{
 			Enabled:                true,

@@ -704,6 +704,10 @@ func convertClientConfig(agentConfig *Config) (*clientconfig.Config, error) {
 		conf.ReservableCores = cores.ToSlice()
 	}
 
+	if agentConfig.Client.NativeServiceDiscovery != nil {
+		conf.NativeServiceDiscovery = *agentConfig.Client.NativeServiceDiscovery
+	}
+
 	return conf, nil
 }
 
