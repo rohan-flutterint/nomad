@@ -420,6 +420,15 @@ const (
 	AddressModeHost   = "host"
 	AddressModeDriver = "driver"
 	AddressModeAlloc  = "alloc"
+
+	// ProviderConsul is the default service provider and the way Nomad worked
+	// before native service discovery.
+	ProviderConsul = "consul"
+
+	// ProviderNomad is the native service discovery provider. At the time of
+	// writing, there are a number of restrictions around its functionality and
+	// use.
+	ProviderNomad = "nomad"
 )
 
 // Service represents a Consul service definition
@@ -468,6 +477,11 @@ type Service struct {
 	// OnUpdate Specifies how the service and its checks should be evaluated
 	// during an update
 	OnUpdate string
+
+	// Provider dictates which service discovery provider to use. This can be
+	// either ProviderConsul or ProviderNomad and defaults to the former when
+	// left empty by the operator.
+	Provider string
 }
 
 const (
@@ -504,7 +518,7 @@ func (s *Service) Copy() *Service {
 
 // Canonicalize interpolates values of Job, Task Group and Task in the Service
 // Name. This also generates check names, service id and check ids.
-func (s *Service) Canonicalize(job string, taskGroup string, task string) {
+func (s *Service) Canonicalize(job, taskGroup, task, jobNamespace string) {
 	// Ensure empty lists are treated as null to avoid scheduler issues when
 	// using DeepEquals
 	if len(s.Tags) == 0 {
@@ -528,10 +542,23 @@ func (s *Service) Canonicalize(job string, taskGroup string, task string) {
 		check.Canonicalize(s.Name)
 	}
 
+	// Set the provider to its default value. The value of consul ensures this
+	// new feature and parameter behaves in the same manner a previous versions
+	// which did not include this.
+	if s.Provider == "" {
+		s.Provider = ProviderConsul
+	}
+
 	// Consul API returns "default" whether the namespace is empty or set as
-	// such, so we coerce our copy of the service to be the same.
-	if s.Namespace == "" {
+	// such, so we coerce our copy of the service to be the same if using the
+	// consul provider.
+	//
+	// When using ProviderNomad, set the namespace to that of the job. This
+	// makes modifications and diffs on the service correct.
+	if s.Namespace == "" && s.Provider == ProviderConsul {
 		s.Namespace = "default"
+	} else if s.Provider == ProviderNomad {
+		s.Namespace = jobNamespace
 	}
 }
 
@@ -562,6 +589,26 @@ func (s *Service) Validate() error {
 	default:
 		mErr.Errors = append(mErr.Errors, fmt.Errorf("Service on_update must be %q, %q, or %q; not %q", OnUpdateRequireHealthy, OnUpdateIgnoreWarn, OnUpdateIgnore, s.OnUpdate))
 	}
+
+	// Up until this point, all service validation has been independent of the
+	// provider. From this point on, we have different validation paths. We can
+	// also catch an incorrect provider parameter.
+	switch s.Provider {
+	case ProviderConsul:
+		s.validateConsulService(&mErr)
+	case ProviderNomad:
+		s.validateNomadService(&mErr)
+	default:
+		mErr.Errors = append(mErr.Errors, fmt.Errorf("Service provider must be %q, or %q; not %q",
+			ProviderConsul, ProviderNomad, s.Provider))
+	}
+
+	return mErr.ErrorOrNil()
+}
+
+// validateConsulService performs validation on a service which is using the
+// consul provider.
+func (s *Service) validateConsulService(mErr *multierror.Error) {
 
 	// check checks
 	for _, c := range s.Checks {
@@ -595,8 +642,23 @@ func (s *Service) Validate() error {
 			mErr.Errors = append(mErr.Errors, fmt.Errorf("Service %s is Connect Native and requires setting the task", s.Name))
 		}
 	}
+}
 
-	return mErr.ErrorOrNil()
+// validateNomadService performs validation on a service which is using the
+// nomad provider.
+func (s *Service) validateNomadService(mErr *multierror.Error) {
+
+	// Service blocks for the Nomad provider do not support checks. We perform
+	// a nil check, as an empty check list is nilled within the service
+	// canonicalize function.
+	if s.Checks != nil {
+		mErr.Errors = append(mErr.Errors, errors.New("Service with provider nomad cannot include Check blocks"))
+	}
+
+	// Services using the Nomad provider do not support Consul connect.
+	if s.Connect != nil {
+		mErr.Errors = append(mErr.Errors, errors.New("Service with provider nomad cannot include Connect blocks"))
+	}
 }
 
 // ValidateName checks if the service Name is valid and should be called after
@@ -631,6 +693,11 @@ func (s *Service) Hash(allocID, taskName string, canary bool) string {
 	hashConnect(h, s.Connect)
 	hashString(h, s.OnUpdate)
 	hashString(h, s.Namespace)
+
+	// Don't hash the provider parameter, so we don't cause churn of all
+	// registered services when upgrading Nomad versions. The provider is not
+	// used at the level the hash is and therefore is not needed to tell
+	// whether the service has changed.
 
 	// Base32 is used for encoding the hash as sha1 hashes can always be
 	// encoded without padding, only 4 bytes larger than base64, and saves
@@ -685,6 +752,10 @@ func hashConfig(h hash.Hash, c map[string]interface{}) {
 func (s *Service) Equals(o *Service) bool {
 	if s == nil || o == nil {
 		return s == o
+	}
+
+	if s.Provider != o.Provider {
+		return false
 	}
 
 	if s.Namespace != o.Namespace {
