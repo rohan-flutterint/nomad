@@ -226,10 +226,6 @@ func (c *cpusetManagerV2) write(id string, set cpuset.CPUSet) {
 	}
 }
 
-func (c *cpusetManagerV2) getParent() string {
-	return v2Root(c.parent)
-}
-
 // ensureParentCgroup will create parent cgroup for the manager if it does not
 // exist yet. No PIDs are added to any cgroup yet.
 func (c *cpusetManagerV2) ensureParent() error {
@@ -242,47 +238,9 @@ func (c *cpusetManagerV2) ensureParent() error {
 		return applyParentErr
 	}
 
-	c.logger.Debug("established initial cgroup hierarchy", "parent", c.getParent())
+	c.logger.Debug("established initial cgroup hierarchy", "parent", c.parent)
 	return nil
 }
-
-// identifierRe matches one of our managed cgroups
-// var identifierRe = regexp.MustCompile(`\.scope$`)
-
-// not necessary, AddAlloc is called again on startup
-//func (c *cpusetManagerV2) restore() error {
-//	fmt.Println("SH will restore ...")
-//	return filepath.Walk(c.parentAbs, func(path string, info os.FileInfo, err error) error {
-//		// cgroup must be a directory
-//		if !info.IsDir() {
-//			return nil
-//		}
-//
-//		// cgroup must be under parent (v2 is using flat namespace)
-//		if dir := filepath.Dir(path); dir != c.parentAbs {
-//			return nil
-//		}
-//
-//		// cgroup must match naming pattern
-//		name := filepath.Base(path)
-//		matches := identifierRe.MatchString(name)
-//		if matches {
-//			fmt.Println("restore cgroup:", path)
-//			// actually read things
-//			fm, readErr := fs2.NewManager(nil, path, v2isRootless)
-//			if readErr != nil {
-//				return readErr
-//			}
-//			groups, groupErr := fm.GetCgroups()
-//			if groupErr != nil {
-//				return groupErr
-//			}
-//			cpus := groups.CpusetCpus
-//			fmt.Println(" -> cpus:", cpus)
-//		}
-//		return nil
-//	})
-//}
 
 func v2Root(group string) string {
 	return filepath.Join(v2CgroupRoot, group)
