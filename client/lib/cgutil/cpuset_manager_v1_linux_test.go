@@ -40,7 +40,7 @@ func TestCpusetManager_V1_Init(t *testing.T) {
 
 	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
-	require.NoError(t, manager.Init())
+	require.NoError(t, manager.Init(nil))
 
 	require.DirExists(t, filepath.Join(manager.cgroupParentPath, SharedCpusetCgroupName))
 	require.FileExists(t, filepath.Join(manager.cgroupParentPath, SharedCpusetCgroupName, "cpuset.cpus"))
@@ -57,7 +57,7 @@ func TestCpusetManager_V1_AddAlloc_single(t *testing.T) {
 
 	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
-	require.NoError(t, manager.Init())
+	require.NoError(t, manager.Init(nil))
 
 	alloc := mock.Alloc()
 	// reserve just one core (the 0th core, which probably exists)
@@ -121,7 +121,7 @@ func TestCpusetManager_V1_RemoveAlloc(t *testing.T) {
 
 	manager, cleanup := tmpCpusetManagerV1(t)
 	defer cleanup()
-	require.NoError(t, manager.Init())
+	require.NoError(t, manager.Init(nil))
 
 	// this case tests adding 2 allocs, reconciling then removing 1 alloc
 	// it requires the system to have atleast 2 cpu cores (one for each alloc)

@@ -64,3 +64,7 @@ func (t TaskCgroupInfo) ID() string {
 func makeID(allocID, task string) string {
 	return fmt.Sprintf("%s.%s", allocID, task)
 }
+
+func makeScope(id string) string {
+	return id + ".scope"
+}
