@@ -2,18 +2,18 @@ package cgutil
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/hashicorp/nomad/lib/cpuset"
 	"github.com/hashicorp/nomad/nomad/structs"
 )
 
-// CpusetManager is used to setup cpuset cgroups for each task. A pool of shared cpus is managed for
-// allocToInfo which don't require any reserved cores and a cgroup is managed secretly for each task which
-// require reserved cores.
+// CpusetManager is used to setup cpuset cgroups for each task.
 type CpusetManager interface {
-	// Init should be called before any allocToInfo are managed to ensure the cgroup parent exists and
-	// check that proper permissions are granted to manage cgroups.
-	Init() error
+	// Init should be called with the initial set of reservable cores before any
+	// allocations are managed. Ensures the parent cgroup exists and proper permissions
+	// are available for managing cgroups.
+	Init([]uint16) error
 
 	// AddAlloc adds an allocation to the manager
 	AddAlloc(alloc *structs.Allocation)
@@ -28,7 +28,7 @@ type CpusetManager interface {
 
 type NoopCpusetManager struct{}
 
-func (n NoopCpusetManager) Init() error {
+func (n NoopCpusetManager) Init([]uint16) error {
 	return nil
 }
 
@@ -49,8 +49,18 @@ func (n NoopCpusetManager) CgroupPathFor(allocID, task string) CgroupPathGetter 
 type CgroupPathGetter func(context.Context) (path string, err error)
 
 type TaskCgroupInfo struct {
+	AllocID            string // v2 only
+	Task               string // v2 only
 	CgroupPath         string
 	RelativeCgroupPath string
 	Cpuset             cpuset.CPUSet
 	Error              error
+}
+
+func (t TaskCgroupInfo) ID() string {
+	return makeID(t.AllocID, t.Task)
+}
+
+func makeID(allocID, task string) string {
+	return fmt.Sprintf("%s.%s", allocID, task)
 }

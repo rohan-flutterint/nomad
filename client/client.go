@@ -657,7 +657,7 @@ func (c *Client) init() error {
 
 	// Ensure cgroups are created on linux platform
 	if runtime.GOOS == "linux" && c.cpusetManager != nil {
-		err := c.cpusetManager.Init()
+		err := c.cpusetManager.Init(c.config.ReservableCores)
 		if err != nil {
 			// if the client cannot initialize the cgroup then reserved cores will not be reported and the cpuset manager
 			// will be disabled. this is common when running in dev mode under a non-root user for example

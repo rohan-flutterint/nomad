@@ -130,7 +130,7 @@ type allocTaskCgroupInfo map[string]*TaskCgroupInfo
 // Init checks that the cgroup parent and expected child cgroups have been created
 // If the cgroup parent is set to /nomad then this will ensure that the /nomad/shared
 // cgroup is initialized.
-func (c *cpusetManagerV1) Init() error {
+func (c *cpusetManagerV1) Init(_ []uint16) error {
 	cgroupParentPath, err := getCgroupPathHelper("cpuset", c.cgroupParent)
 	if err != nil {
 		return err
