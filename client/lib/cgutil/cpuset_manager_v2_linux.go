@@ -3,6 +3,12 @@ package cgutil
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/nomad/helper"
 	"github.com/hashicorp/nomad/lib/cpuset"
@@ -10,10 +16,6 @@ import (
 	"github.com/opencontainers/runc/libcontainer/cgroups"
 	"github.com/opencontainers/runc/libcontainer/cgroups/fs2"
 	"github.com/opencontainers/runc/libcontainer/configs"
-	"path/filepath"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -116,6 +118,7 @@ func (c *cpusetManagerV2) AddAlloc(alloc *structs.Allocation) {
 func (c *cpusetManagerV2) RemoveAlloc(allocID string) {
 	c.logger.Info("remove allocation", "id", allocID)
 
+	// grab write lock while we recompute
 	c.lock.Lock()
 
 	// remove tasks of allocID from the sharing set
@@ -134,17 +137,17 @@ func (c *cpusetManagerV2) RemoveAlloc(allocID string) {
 
 	// recompute available sharable cpu cores
 	c.recalculate()
-	fmt.Println(" remaining:", c.pool)
 
-	// todo move
+	// let go of write lock, reconcile only needs read lock
 	c.lock.Unlock()
 
 	// now write out the entire cgroups space
-	// todo in background
 	c.reconcile()
 }
 
 // recalculate the number of cores sharable by non-isolating tasks (and isolating tasks)
+//
+// must be called while holding c.lock
 func (c *cpusetManagerV2) recalculate() {
 	remaining := c.initial.Copy()
 	for _, set := range c.isolating {
@@ -198,10 +201,78 @@ func (c *cpusetManagerV2) reconcile() {
 		fmt.Println(" isolating id:", id, "set:", set)
 		c.write(id, c.pool.Union(set))
 	}
+
+	c.cleanup()
+}
+
+// must be called while holding c.lock
+func (c *cpusetManagerV2) cleanup() {
+
+	// create a map to lookup ids we know about
+	size := len(c.sharing) + len(c.isolating)
+	ids := make(map[identifier]nothing, size)
+	for id := range c.sharing {
+		ids[id] = null
+	}
+	for id := range c.isolating {
+		ids[id] = null
+	}
+
+	if err := filepath.WalkDir(c.parentAbs, func(path string, entry os.DirEntry, err error) error {
+		// a cgroup is a directory
+		if !entry.IsDir() {
+			return nil
+		}
+
+		dir := filepath.Dir(path)
+		base := filepath.Base(path)
+
+		// only manage scopes directly under nomad.slice
+		if dir != c.parentAbs || !strings.HasSuffix(base, ".scope") {
+			return nil
+		}
+
+		// only remove the scope if we do not track it
+		id := strings.TrimSuffix(base, ".scope")
+		_, exists := ids[id]
+		if !exists {
+			c.remove(path)
+		}
+
+		return nil
+	}); err != nil {
+		c.logger.Error("failed to cleanup cgroup", "err", err)
+	}
 }
 
 func (c *cpusetManagerV2) pathOf(id string) string {
 	return filepath.Join(c.parentAbs, makeScope(id))
+}
+
+func (c *cpusetManagerV2) remove(path string) {
+	mgr, err := fs2.NewManager(nil, path, v2isRootless)
+	if err != nil {
+		c.logger.Warn("failed to create manager", "path", path, "err", err)
+		return
+	}
+
+	// get the list of pids managed by this scope (should be 0 or 1)
+	pids, err2 := mgr.GetPids()
+	if err2 != nil {
+		c.logger.Warn("failed to list pids", "path", path, "err", err)
+		return
+	}
+
+	// do not destroy the scope if a PID is still present
+	// this is a normal condition when an agent restarts with running tasks
+	if len(pids) > 0 {
+		return
+	}
+
+	if err3 := mgr.Destroy(); err3 != nil {
+		c.logger.Warn("failed to cleanup cgroup", "path", path, "err", err)
+		return
+	}
 }
 
 func (c *cpusetManagerV2) write(id string, set cpuset.CPUSet) {
@@ -229,13 +300,13 @@ func (c *cpusetManagerV2) write(id string, set cpuset.CPUSet) {
 // ensureParentCgroup will create parent cgroup for the manager if it does not
 // exist yet. No PIDs are added to any cgroup yet.
 func (c *cpusetManagerV2) ensureParent() error {
-	parentMgr, parentErr := fs2.NewManager(nil, c.parentAbs, v2isRootless)
-	if parentErr != nil {
-		return parentErr
+	mgr, err := fs2.NewManager(nil, c.parentAbs, v2isRootless)
+	if err != nil {
+		return err
 	}
 
-	if applyParentErr := parentMgr.Apply(v2CreationPID); applyParentErr != nil {
-		return applyParentErr
+	if err = mgr.Apply(v2CreationPID); err != nil {
+		return err
 	}
 
 	c.logger.Debug("established initial cgroup hierarchy", "parent", c.parent)

@@ -141,7 +141,6 @@ func getCgroupPathHelper(subsystem, cgroup string) (string, error) {
 	fmt.Println("FindCgroupMountPointAndRoot, subsystem:", subsystem, "cgroup:", cgroup)
 	mnt, root, err := cgroups.FindCgroupMountpointAndRoot("", subsystem)
 	if err != nil {
-		fmt.Println("SH A:", err)
 		return "", err
 	}
 
@@ -149,13 +148,10 @@ func getCgroupPathHelper(subsystem, cgroup string) (string, error) {
 	// see paths from host, which don't exist in container.
 	relCgroup, err := filepath.Rel(root, cgroup)
 	if err != nil {
-		fmt.Println("SH B:", err)
 		return "", err
 	}
 
 	result := filepath.Join(mnt, relCgroup)
-
-	fmt.Println("SH getCgroupPathHelper", result)
 	return result, nil
 }
 
