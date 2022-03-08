@@ -78,7 +78,7 @@ endif
 
 SUPPORTED_OSES = Darwin Linux FreeBSD Windows MSYS_NT
 
-CGO_ENABLED = 1
+CGO_ENABLED = 0
 
 # include per-user customization after all variables are defined
 -include GNUMakefile.local
