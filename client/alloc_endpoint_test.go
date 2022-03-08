@@ -990,7 +990,8 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 		t.Skip("chroot isolation requires linux root")
 	}
 
-	isolation := drivers.FSIsolationChroot
+	// isolation := drivers.FSIsolationChroot
+	isolation := drivers.FSIsolationNone
 
 	// Start a server and client
 	s, root, cleanupS := nomad.TestACLServer(t, func(c *nomad.Config) {
