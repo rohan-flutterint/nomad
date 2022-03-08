@@ -34,6 +34,7 @@ env:
   GOTESTARCH: amd64
   CONSUL_VERSION: 1.11.3
   VAULT_VERSION: 1.9.3
+  CI: 1
 jobs:
   checks:
     runs-on: ubuntu-20.04

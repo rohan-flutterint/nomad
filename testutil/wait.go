@@ -20,7 +20,7 @@ func WaitForResult(test testFn, error errorFn) {
 
 func WaitForResultRetries(retries int64, test testFn, error errorFn) {
 	for retries > 0 {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 		retries--
 
 		success, err := test()
