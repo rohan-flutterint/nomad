@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/nomad/client/config"
 	cstructs "github.com/hashicorp/nomad/client/structs"
 	"github.com/hashicorp/nomad/helper/pluginutils/catalog"
-	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/nomad"
 	"github.com/hashicorp/nomad/nomad/mock"
 	nstructs "github.com/hashicorp/nomad/nomad/structs"
@@ -25,6 +24,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
 )
+
+/*
 
 func TestAllocations_Restart(t *testing.T) {
 
@@ -982,6 +983,8 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Image(t *testing.T) {
 	}
 }
 
+*/
+
 // TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot asserts that token only needs
 // alloc-exec acl policy when chroot isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
@@ -1129,6 +1132,9 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 	}
 }
 
+/*
+
+
 // TestAlloc_ExecStreaming_ACL_WithIsolation_None asserts that token needs
 // alloc-node-exec acl policy as well when no isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_None(t *testing.T) {
@@ -1272,6 +1278,9 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_None(t *testing.T) {
 		})
 	}
 }
+
+
+*/
 
 func decodeFrames(t *testing.T, p1 net.Conn, frames chan<- *drivers.ExecTaskStreamingResponseMsg, errCh chan<- error) {
 	// Start the decoder

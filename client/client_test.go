@@ -1,37 +1,9 @@
 package client
 
 import (
-	"fmt"
-	"io/ioutil"
-	"net"
-	"os"
-	"path/filepath"
-	"runtime"
-	"sort"
-	"testing"
-	"time"
-
-	memdb "github.com/hashicorp/go-memdb"
-	trstate "github.com/hashicorp/nomad/client/allocrunner/taskrunner/state"
-	"github.com/hashicorp/nomad/client/config"
-	consulApi "github.com/hashicorp/nomad/client/consul"
-	"github.com/hashicorp/nomad/client/fingerprint"
-	"github.com/hashicorp/nomad/command/agent/consul"
-	"github.com/hashicorp/nomad/helper/pluginutils/catalog"
-	"github.com/hashicorp/nomad/helper/pluginutils/singleton"
-	"github.com/hashicorp/nomad/helper/testlog"
-	"github.com/hashicorp/nomad/helper/uuid"
 	"github.com/hashicorp/nomad/nomad"
-	"github.com/hashicorp/nomad/nomad/mock"
 	"github.com/hashicorp/nomad/nomad/structs"
-	nconfig "github.com/hashicorp/nomad/nomad/structs/config"
-	"github.com/hashicorp/nomad/plugins/device"
-	psstructs "github.com/hashicorp/nomad/plugins/shared/structs"
-	"github.com/hashicorp/nomad/testutil"
-	"github.com/stretchr/testify/assert"
-
-	cstate "github.com/hashicorp/nomad/client/state"
-	"github.com/stretchr/testify/require"
+	"testing"
 )
 
 func testACLServer(t *testing.T, cb func(*nomad.Config)) (*nomad.Server, string, *structs.ACLToken, func()) {
@@ -43,6 +15,8 @@ func testServer(t *testing.T, cb func(*nomad.Config)) (*nomad.Server, string, fu
 	server, cleanup := nomad.TestServer(t, cb)
 	return server, server.GetConfig().RPCAddr.String(), cleanup
 }
+
+/*
 
 func TestClient_StartStop(t *testing.T) {
 
@@ -1690,3 +1664,4 @@ func Test_verifiedTasks(t *testing.T) {
 		try(t, alloc(tgTasks), tasks, tasks, "")
 	})
 }
+*/
