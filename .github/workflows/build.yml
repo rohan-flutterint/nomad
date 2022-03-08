@@ -1,6 +1,7 @@
 name: build
 
-on: [push, workflow_call]
+on: 
+  push:
     # Sequence of patterns matched against refs/heads
     branches:
       # Push events on main branch
