@@ -3,13 +3,7 @@ package client
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net"
-	"runtime"
-	"strings"
-	"testing"
-	"time"
-
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/hashicorp/nomad/acl"
 	"github.com/hashicorp/nomad/client/config"
@@ -21,8 +15,12 @@ import (
 	nconfig "github.com/hashicorp/nomad/nomad/structs/config"
 	"github.com/hashicorp/nomad/plugins/drivers"
 	"github.com/hashicorp/nomad/testutil"
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/unix"
+	"io"
+	"net"
+	"runtime"
+	"strings"
+	"testing"
 )
 
 /*
@@ -992,13 +990,14 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 		t.Skip("chroot isolation requires linux root")
 	}
 
-	// todo remove
-	return
-
 	isolation := drivers.FSIsolationChroot
 
 	// Start a server and client
-	s, root, cleanupS := nomad.TestACLServer(t, nil)
+	s, root, cleanupS := nomad.TestACLServer(t, func(c *nomad.Config) {
+		c.Logger.SetLevel(hclog.Debug)
+		c.NumSchedulers = 1
+		c.EnableEventBroker = false
+	})
 	defer cleanupS()
 
 	fmt.Println("SH created TestACLServer, will wait for leader")
@@ -1010,7 +1009,7 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 	client, cleanup := TestClient(t, func(c *config.Config) {
 		c.ACLEnabled = true
 		c.Servers = []string{s.GetConfig().RPCAddr.String()}
-
+		c.Logger.SetLevel(hclog.Debug)
 		pluginConfig := []*nconfig.PluginConfig{
 			{
 				Name: "mock_driver",
@@ -1055,95 +1054,100 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
 
 	fmt.Println("SH done with wait for running with token")
 
-	// Get the allocation ID
-	args := nstructs.AllocListRequest{}
-	args.Region = "global"
-	args.AuthToken = root.SecretID
-	args.Namespace = nstructs.DefaultNamespace
-	resp := nstructs.AllocListResponse{}
-	require.NoError(t, s.RPC("Alloc.List", &args, &resp))
-	require.Len(t, resp.Allocations, 1)
-	allocID := resp.Allocations[0].ID
+	_, _, _, _ = client, tokenBad, tokenAllocExec, tokenAllocNodeExec
 
-	cases := []struct {
-		Name          string
-		Token         string
-		ExpectedError string
-	}{
-		{
-			Name:          "bad token",
-			Token:         tokenBad.SecretID,
-			ExpectedError: nstructs.ErrPermissionDenied.Error(),
-		},
-		{
-			Name:          "alloc-exec token",
-			Token:         tokenAllocExec.SecretID,
-			ExpectedError: "",
-		},
-		{
-			Name:          "alloc-node-exec token",
-			Token:         tokenAllocNodeExec.SecretID,
-			ExpectedError: "",
-		},
-		{
-			Name:          "root token",
-			Token:         root.SecretID,
-			ExpectedError: "",
-		},
-	}
+	/*
 
-	for _, c := range cases {
-		t.Run(c.Name, func(t *testing.T) {
+		// Get the allocation ID
+		args := nstructs.AllocListRequest{}
+		args.Region = "global"
+		args.AuthToken = root.SecretID
+		args.Namespace = nstructs.DefaultNamespace
+		resp := nstructs.AllocListResponse{}
+		require.NoError(t, s.RPC("Alloc.List", &args, &resp))
+		require.Len(t, resp.Allocations, 1)
+		allocID := resp.Allocations[0].ID
 
-			// Make the request
-			req := &cstructs.AllocExecRequest{
-				AllocID: allocID,
-				Task:    job.TaskGroups[0].Tasks[0].Name,
-				Tty:     true,
-				Cmd:     []string{"placeholder command"},
-				QueryOptions: nstructs.QueryOptions{
-					Region:    "global",
-					AuthToken: c.Token,
-					Namespace: nstructs.DefaultNamespace,
-				},
-			}
+		cases := []struct {
+			Name          string
+			Token         string
+			ExpectedError string
+		}{
+			{
+				Name:          "bad token",
+				Token:         tokenBad.SecretID,
+				ExpectedError: nstructs.ErrPermissionDenied.Error(),
+			},
+			{
+				Name:          "alloc-exec token",
+				Token:         tokenAllocExec.SecretID,
+				ExpectedError: "",
+			},
+			{
+				Name:          "alloc-node-exec token",
+				Token:         tokenAllocNodeExec.SecretID,
+				ExpectedError: "",
+			},
+			{
+				Name:          "root token",
+				Token:         root.SecretID,
+				ExpectedError: "",
+			},
+		}
 
-			// Get the handler
-			handler, err := client.StreamingRpcHandler("Allocations.Exec")
-			require.Nil(t, err)
+		for _, c := range cases {
+			t.Run(c.Name, func(t *testing.T) {
 
-			// Create a pipe
-			p1, p2 := net.Pipe()
-			defer p1.Close()
-			defer p2.Close()
-
-			errCh := make(chan error)
-			frames := make(chan *drivers.ExecTaskStreamingResponseMsg)
-
-			// Start the handler
-			go handler(p2)
-			go decodeFrames(t, p1, frames, errCh)
-
-			// Send the request
-			encoder := codec.NewEncoder(p1, nstructs.MsgpackHandle)
-			require.Nil(t, encoder.Encode(req))
-
-			select {
-			case <-time.After(3 * time.Second):
-			case err := <-errCh:
-				if c.ExpectedError == "" {
-					require.NoError(t, err)
-				} else {
-					require.Contains(t, err.Error(), c.ExpectedError)
+				// Make the request
+				req := &cstructs.AllocExecRequest{
+					AllocID: allocID,
+					Task:    job.TaskGroups[0].Tasks[0].Name,
+					Tty:     true,
+					Cmd:     []string{"placeholder command"},
+					QueryOptions: nstructs.QueryOptions{
+						Region:    "global",
+						AuthToken: c.Token,
+						Namespace: nstructs.DefaultNamespace,
+					},
 				}
-			case f := <-frames:
-				// we are good if we don't expect an error
-				if c.ExpectedError != "" {
-					require.Fail(t, "unexpected frame", "frame: %#v", f)
+
+				// Get the handler
+				handler, err := client.StreamingRpcHandler("Allocations.Exec")
+				require.Nil(t, err)
+
+				// Create a pipe
+				p1, p2 := net.Pipe()
+				defer p1.Close()
+				defer p2.Close()
+
+				errCh := make(chan error)
+				frames := make(chan *drivers.ExecTaskStreamingResponseMsg)
+
+				// Start the handler
+				go handler(p2)
+				go decodeFrames(t, p1, frames, errCh)
+
+				// Send the request
+				encoder := codec.NewEncoder(p1, nstructs.MsgpackHandle)
+				require.Nil(t, encoder.Encode(req))
+
+				select {
+				case <-time.After(3 * time.Second):
+				case err := <-errCh:
+					if c.ExpectedError == "" {
+						require.NoError(t, err)
+					} else {
+						require.Contains(t, err.Error(), c.ExpectedError)
+					}
+				case f := <-frames:
+					// we are good if we don't expect an error
+					if c.ExpectedError != "" {
+						require.Fail(t, "unexpected frame", "frame: %#v", f)
+					}
 				}
-			}
-		})
-	}
+			})
+		}
+	*/
 }
 
 /*

@@ -1378,11 +1378,6 @@ func BatchJob() *structs.Job {
 						Resources: &structs.Resources{
 							CPU:      100,
 							MemoryMB: 100,
-							Networks: []*structs.NetworkResource{
-								{
-									MBits: 50,
-								},
-							},
 						},
 						Meta: map[string]string{
 							"foo": "bar",
