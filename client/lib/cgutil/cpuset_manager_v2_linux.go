@@ -2,7 +2,6 @@ package cgutil
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -72,7 +71,7 @@ func NewCpusetManagerV2(parent string, logger hclog.Logger) CpusetManager {
 }
 
 func (c *cpusetManagerV2) Init(cores []uint16) error {
-	c.logger.Warn("initializing with", "cores", cores)
+	c.logger.Debug("initializing with", "cores", cores)
 	if err := c.ensureParent(); err != nil {
 		c.logger.Error("failed to init cpuset manager", "err", err)
 		return err
@@ -86,32 +85,28 @@ func (c *cpusetManagerV2) AddAlloc(alloc *structs.Allocation) {
 		return
 	}
 
-	c.logger.Info("add allocation", "name", alloc.Name, "id", alloc.ID)
+	c.logger.Trace("add allocation", "name", alloc.Name, "id", alloc.ID)
 
+	// grab write lock while we recompute
 	c.lock.Lock()
-	// defer c.lock.Unlock()
 
 	// first update our tracking of isolating and sharing tasks
 	for task, resources := range alloc.AllocatedResources.Tasks {
 		id := makeID(alloc.ID, task)
 		if len(resources.Cpu.ReservedCores) > 0 {
 			c.isolating[id] = cpuset.New(resources.Cpu.ReservedCores...)
-			fmt.Println(" isolating id:", id, "cores:", c.isolating[id])
 		} else {
 			c.sharing[id] = null
-			fmt.Println(" sharing id:", id)
 		}
 	}
 
 	// recompute the available sharable cpu cores
 	c.recalculate()
-	fmt.Println(" remaining:", c.pool)
 
-	// todo remove
+	// let go of write lock, reconcile only needs read lock
 	c.lock.Unlock()
 
 	// now write out the entire cgroups space
-	// todo in background
 	c.reconcile()
 }
 
@@ -190,15 +185,11 @@ func (c *cpusetManagerV2) reconcile() {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	fmt.Println("reconcile ... ")
-
 	for id := range c.sharing {
-		fmt.Println(" sharing id:", id)
 		c.write(id, c.pool)
 	}
 
 	for id, set := range c.isolating {
-		fmt.Println(" isolating id:", id, "set:", set)
 		c.write(id, c.pool.Union(set))
 	}
 
