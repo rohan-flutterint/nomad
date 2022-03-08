@@ -3,8 +3,7 @@ schema = "1"
 project "nomad" {
   team = "nomad"
   slack {
-    // TODO: ask nomad team which feed channel would be best -- perhaps #proj-nomad-releases?
-    // TODO: add promote-dev-docker + security-scan-container workflows later
+    // TODO: change to #proj-nomad-releases
     notification_channel = "C01A3A54G0L"
   }
   github {
@@ -155,19 +154,6 @@ event "promote-staging" {
   }
 }
 
-event "promote-staging-docker" {
-  depends = ["promote-staging"]
-  action "promote-staging-docker" {
-    organization = "hashicorp"
-    repository = "crt-workflows-common"
-    workflow = "promote-staging-docker"
-  }
-
-  notification {
-    on = "always"
-  }
-}
-
 event "trigger-production" {
 // This event is dispatched by the bob trigger-promotion command
 // and is required - do not delete.
@@ -186,21 +172,8 @@ event "promote-production" {
   }
 }
 
-event "promote-production-docker" {
-  depends = ["promote-production"]
-  action "promote-production-docker" {
-    organization = "hashicorp"
-    repository = "crt-workflows-common"
-    workflow = "promote-production-docker"
-  }
-
-  notification {
-    on = "always"
-  }
-}
-
 event "promote-production-packaging" {
-  depends = ["promote-production-docker"]
+  depends = ["promote-production"]
   action "promote-production-packaging" {
     organization = "hashicorp"
     repository = "crt-workflows-common"

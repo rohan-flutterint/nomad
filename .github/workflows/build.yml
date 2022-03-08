@@ -1,7 +1,6 @@
 name: build
 
-on:  
-  push:
+on: [push, workflow_call]
     # Sequence of patterns matched against refs/heads
     branches:
       # Push events on main branch
@@ -100,6 +99,10 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: 'ui/yarn.lock'
       
+      - name: Install Yarn
+        run: |
+          npm install -g yarn
+      
       - name: UI Build
         run: |
           cd ui
@@ -169,6 +172,10 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: 'ui/yarn.lock'
       
+      - name: Install Yarn
+        run: |
+          npm install -g yarn
+      
       - name: UI Build
         run: |
           cd ui
@@ -202,7 +209,7 @@ jobs:
         if: ${{ matrix.goos == 'linux' }}
         uses: hashicorp/actions-packaging-linux@v1
         with:
-          name: ${{ github.event.repository.name }}
+          name: ${{ env.PKG_NAME }}
           description: "Nomad is an easy-to-use, flexible, and performant workload orchestrator that can deploy a mix of microservice, batch, containerized, and non-containerized applications."
           arch: ${{ matrix.goarch }}
           version: ${{ needs.get-product-version.outputs.product-version }}
@@ -273,6 +280,10 @@ jobs:
           cache: 'yarn'
           cache-dependency-path: 'ui/yarn.lock'
       
+      - name: Install Yarn
+        run: |
+          npm install -g yarn
+      
       - name: UI Build
         run: |
           cd ui
@@ -304,8 +315,7 @@ jobs:
           path: out/${{ env.PKG_NAME }}_${{ needs.get-product-version.outputs.product-version }}_${{ matrix.goos }}_${{ matrix.goarch }}.zip
 
   # This placed here for when the Nomad team is ready to build docker images. 
-  # Please refer to the Dockerfile that has been placed at the root of this repository to ensure functionality. 
-  # The Nomad team will need to create a docker repo and the RDX team has instructions handy on how to get this set up. 
+  # Please reach out the RDX team for assistance or refer to the CRT Self-Serve Onboarding doc. 
 
   # build-docker-default:
   #   name: Docker ${{ matrix.arch }} default release build
