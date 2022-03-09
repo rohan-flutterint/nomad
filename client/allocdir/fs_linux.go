@@ -21,11 +21,20 @@ const (
 // linkDir bind mounts src to dst as Linux doesn't support hardlinking
 // directories.
 func linkDir(src, dst string) error {
+	fmt.Println("linkDir src:", src, "dest:", dst)
 	if err := os.MkdirAll(dst, 0777); err != nil {
+		fmt.Println("linkDir err:", err)
 		return err
 	}
 
-	return syscall.Mount(src, dst, "", syscall.MS_BIND, "")
+	err := syscall.Mount(src, dst, "", syscall.MS_BIND, "")
+	if err != nil {
+		fmt.Println("linkDir err mount:", err)
+		return err
+	}
+
+	fmt.Println("linkDir ok")
+	return nil
 }
 
 // unlinkDir unmounts a bind mounted directory as Linux doesn't support

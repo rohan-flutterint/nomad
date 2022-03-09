@@ -75,32 +75,45 @@ func newTaskDir(logger hclog.Logger, clientAllocDir, allocDir, taskName string) 
 // allows skipping chroot creation if the caller knows it has already been
 // done. client.alloc_dir will be skipped.
 func (t *TaskDir) Build(createChroot bool, chroot map[string]string) error {
+	fmt.Println("TaskDir.Build create:", createChroot, "chroot", chroot)
+
 	if err := os.MkdirAll(t.Dir, 0777); err != nil {
+		fmt.Println("exit A:", err)
 		return err
 	}
 
+	fmt.Println("B drop permissions")
 	// Make the task directory have non-root permissions.
 	if err := dropDirPermissions(t.Dir, os.ModePerm); err != nil {
+		fmt.Println("exit B:", err)
 		return err
 	}
 
+	fmt.Println("C make local dir")
 	// Create a local directory that each task can use.
 	if err := os.MkdirAll(t.LocalDir, 0777); err != nil {
+		fmt.Println("exit C:", err)
 		return err
 	}
 
+	fmt.Println("D drop permissions local")
 	if err := dropDirPermissions(t.LocalDir, os.ModePerm); err != nil {
+		fmt.Println("exit D:", err)
 		return err
 	}
 
+	fmt.Println("E create dirs for every task")
 	// Create the directories that should be in every task.
 	for dir, perms := range TaskDirs {
 		absdir := filepath.Join(t.Dir, dir)
+		fmt.Println("  absdir:", absdir)
 		if err := os.MkdirAll(absdir, perms); err != nil {
+			fmt.Println("exit E1:", err)
 			return err
 		}
 
 		if err := dropDirPermissions(absdir, perms); err != nil {
+			fmt.Println("exit E2:", err)
 			return err
 		}
 	}
@@ -112,28 +125,39 @@ func (t *TaskDir) Build(createChroot bool, chroot map[string]string) error {
 	if createChroot {
 		// If the path doesn't exist OR it exists and is empty, link it
 		empty, _ := pathEmpty(t.SharedTaskDir)
+		fmt.Println("F link, empty:", empty)
 		if !pathExists(t.SharedTaskDir) || empty {
+			fmt.Println("F path does not exist")
 			if err := linkDir(t.SharedAllocDir, t.SharedTaskDir); err != nil {
+				fmt.Println("exit F:", err)
 				return fmt.Errorf("Failed to mount shared directory for task: %v", err)
 			}
 		}
 	}
 
+	fmt.Println("G create secret dir")
 	// Create the secret directory
 	if err := createSecretDir(t.SecretsDir); err != nil {
+		fmt.Println("G exit:", err)
 		return err
 	}
 
+	fmt.Println("H drop perms secret")
 	if err := dropDirPermissions(t.SecretsDir, os.ModePerm); err != nil {
+		fmt.Println("H exit:", err)
 		return err
 	}
 
 	// Build chroot if chroot filesystem isolation is going to be used
 	if createChroot {
+		fmt.Println("I will build chroot")
 		if err := t.buildChroot(chroot); err != nil {
+			fmt.Println("I exit:", err)
 			return err
 		}
 	}
+
+	fmt.Println("done!")
 
 	return nil
 }
@@ -143,25 +167,30 @@ func (t *TaskDir) Build(createChroot bool, chroot map[string]string) error {
 // attempts hardlink and then defaults to copying. If the path exists on the
 // host and can't be embedded an error is returned.
 func (t *TaskDir) buildChroot(entries map[string]string) error {
+	fmt.Println("buildChroot:", entries)
 	return t.embedDirs(entries)
 }
 
 func (t *TaskDir) embedDirs(entries map[string]string) error {
 	subdirs := make(map[string]string)
 	for source, dest := range entries {
+		fmt.Println("embedDirs source:", source, "dest:", dest)
 		if _, ok := t.skip[source]; ok {
 			// source in skip list
+			fmt.Println(" -> skip")
 			continue
 		}
 
 		// Check to see if directory exists on host.
 		s, err := os.Stat(source)
 		if os.IsNotExist(err) {
+			fmt.Println(" -> is not exist source:", source)
 			continue
 		}
 
 		// Embedding a single file
 		if !s.IsDir() {
+			fmt.Println(" -> embed single file")
 			if err := createDir(t.Dir, filepath.Dir(dest)); err != nil {
 				return fmt.Errorf("Couldn't create destination directory %v: %v", dest, err)
 			}
@@ -170,8 +199,10 @@ func (t *TaskDir) embedDirs(entries map[string]string) error {
 			taskEntry := filepath.Join(t.Dir, dest)
 			uid, gid := getOwner(s)
 			if err := linkOrCopy(source, taskEntry, uid, gid, s.Mode().Perm()); err != nil {
+				fmt.Println(" -> link or copy fail:", err)
 				return err
 			}
+			fmt.Println(" -> link or copy ok")
 
 			continue
 		}
@@ -179,15 +210,19 @@ func (t *TaskDir) embedDirs(entries map[string]string) error {
 		// Create destination directory.
 		destDir := filepath.Join(t.Dir, dest)
 
+		fmt.Println(" -> create dir:", t.Dir, "dest:", dest)
 		if err := createDir(t.Dir, dest); err != nil {
+			fmt.Println(" -> create dir err:", err)
 			return fmt.Errorf("Couldn't create destination directory %v: %v", destDir, err)
 		}
 
 		// Enumerate the files in source.
 		dirEntries, err := ioutil.ReadDir(source)
 		if err != nil {
+			fmt.Println(" -> read dir failed, source:", source, "err:", err)
 			return fmt.Errorf("Couldn't read directory %v: %v", source, err)
 		}
+		fmt.Println(" -> read dir ok, dirEntries:", dirEntries)
 
 		for _, entry := range dirEntries {
 			hostEntry := filepath.Join(source, entry.Name())
