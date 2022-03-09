@@ -32,7 +32,8 @@ ifndef NOMAD_NO_UI
 GO_TAGS := ui $(GO_TAGS)
 endif
 
-GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
+# GO_TEST_CMD = $(if $(shell command -v gotestsum 2>/dev/null),gotestsum --,go test)
+GO_TEST_CMD := go test
 
 ifeq ($(origin GOTEST_PKGS_EXCLUDE), undefined)
 GOTEST_PKGS ?= "./..."

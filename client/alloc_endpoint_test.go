@@ -985,6 +985,8 @@ func TestAlloc_ExecStreaming_ACL_WithIsolation_Image(t *testing.T) {
 // TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot asserts that token only needs
 // alloc-exec acl policy when chroot isolation is used
 func TestAlloc_ExecStreaming_ACL_WithIsolation_Chroot(t *testing.T) {
+	testutil.SkipSlow(t, "GHA disk IO too slow")
+
 	if runtime.GOOS != "linux" || unix.Geteuid() != 0 {
 		t.Skip("chroot isolation requires linux root")
 	}
