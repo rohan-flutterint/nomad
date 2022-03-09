@@ -156,6 +156,19 @@ type SchedulerConfiguration struct {
 	// management ACL token
 	RejectJobRegistration bool `hcl:"reject_job_registration"`
 
+	// CarbonMaxScore specifies the maximum carbon score a node may
+	// register. The higher the score, the less likely it will be assigned
+	// work. The max score is used to clamp and normalize carbon scores
+	// sent by clients.
+	//
+	// 0 is the default max score and disables carbon scoring.
+	CarbonMaxScore float64 `hcl:"carbon_max_score"`
+
+	// CarbonDefaultScore specifies the default carbon score a node will be
+	// given if it does not register a score. The higher the score, the
+	// less likely it will be assigned work.
+	CarbonDefaultScore float64 `hcl:"carbon_default_score"`
+
 	// CreateIndex/ModifyIndex store the create/modify indexes of this configuration.
 	CreateIndex uint64
 	ModifyIndex uint64

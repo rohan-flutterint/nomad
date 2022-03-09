@@ -59,7 +59,7 @@ type GenericStack struct {
 	distinctHostsConstraint    *DistinctHostsIterator
 	distinctPropertyConstraint *DistinctPropertyIterator
 	binPack                    *BinPackIterator
-	carbon                     *CarbonScoreIterator
+	carbon                     RankIterator
 	jobAntiAff                 *JobAntiAffinityIterator
 	nodeReschedulingPenalty    *NodeReschedulingPenaltyIterator
 	limit                      *LimitIterator
@@ -412,7 +412,7 @@ func NewGenericStack(batch bool, ctx Context) *GenericStack {
 	s.binPack = NewBinPackIterator(ctx, rankSource, false, 0, schedConfig)
 
 	//TODO(carbon) is this the right place?
-	s.carbon = NewCarbonScoreIterator(ctx, s.binPack)
+	s.carbon = NewCarbonScoreIterator(ctx, s.binPack, schedConfig)
 
 	// Apply the job anti-affinity iterator. This is to avoid placing
 	// multiple allocations on the same node for this job.
